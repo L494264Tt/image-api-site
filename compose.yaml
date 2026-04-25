@@ -1,0 +1,25 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./.env.deploy
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+    expose:
+      - "8000"
+    volumes:
+      - ./storage:/app/storage
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prebuilt
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8088:80"

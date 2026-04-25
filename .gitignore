@@ -1,0 +1,23 @@
+# Secrets and local env
+.env
+.env.*
+!**/.env.example
+!**/.env.deploy.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Frontend
+frontend/node_modules/
+frontend/.vscode/
+
+# Generated artifacts
+backend/test_image_api_site.db
+backend/test_storage/
+
+# OS/editor
+.DS_Store
+.idea/
