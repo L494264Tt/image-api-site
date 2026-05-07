@@ -5,13 +5,7 @@ const LOCALE_STORAGE_KEY = 'image-api-site-locale'
 export const messages: Record<Locale, AppCopy> = {
   zh: {
     header: {
-      eyebrow: '受控生图工作台',
-      tagline: '通过本地后端代理调用 OpenAI 兼容生图接口，前端不暴露上游密钥，并保留已生成图片历史。',
-      relayTarget: '代理目标',
-      mode: '模式',
-      modeValue: 'OpenAI 兼容代理',
-      exposure: '密钥暴露',
-      exposureValue: '前端不会看到上游密钥',
+      eyebrow: '图片生成工作台',
       language: '语言',
       chinese: '中文',
       english: 'EN',
@@ -22,6 +16,33 @@ export const messages: Record<Locale, AppCopy> = {
       characters: '字',
       mainPrompt: '主提示词',
       mainPromptPlaceholder: '雨夜温室中的陶瓷宇航员肖像，电影感光线，细节锐利',
+      promptTemplatesTitle: '基础提示词',
+      promptTemplates: [
+        {
+          title: '产品海报',
+          description: '适合电商主图和发布海报',
+          prompt: '高端消费电子产品的商业海报，产品居中摆放，柔和棚拍布光，干净背景，细节锐利，真实材质，专业广告摄影，4K',
+          negativePrompt: '低清晰度，文字水印，变形，杂乱背景，过曝，廉价质感',
+        },
+        {
+          title: '人物肖像',
+          description: '适合头像、角色和宣传图',
+          prompt: '半身人物肖像，电影感侧逆光，自然皮肤质感，浅景深，情绪稳定，背景简洁，专业人像摄影，细节丰富',
+          negativePrompt: '多余手指，五官扭曲，塑料皮肤，模糊，水印，过度磨皮',
+        },
+        {
+          title: '室内空间',
+          description: '适合家装和建筑氛围图',
+          prompt: '现代室内客厅设计，晨光从大窗洒入，木质和织物材质，整洁构图，真实建筑摄影，温暖但不过饱和',
+          negativePrompt: '透视错误，家具变形，杂乱，低清晰度，过度广角，水印',
+        },
+        {
+          title: '插画场景',
+          description: '适合封面和故事画面',
+          prompt: '温暖的故事书插画场景，傍晚街角的小咖啡店，窗内灯光柔和，人物自然互动，丰富细节，统一色彩，精致构图',
+          negativePrompt: '脏乱线条，比例错误，文字，水印，过饱和，低质量',
+        },
+      ],
       negativePrompt: '反向提示词',
       negativePromptPlaceholder: '模糊，多余肢体，水印，过饱和',
       negativePromptHint: '用于排除不想要的瑕疵和风格偏差。',
@@ -35,6 +56,11 @@ export const messages: Record<Locale, AppCopy> = {
       style: '风格',
       responseFormat: '返回格式',
       background: '背景',
+      referenceImages: '参考图 / 图生图',
+      referenceImagesHint: '上传 PNG、JPEG 或 WebP，模型会参考图片内容并按提示词进行改图；最多 4 张，每张不超过 10MB。',
+      uploadReferenceImages: '上传参考图',
+      removeReferenceImage: '移除',
+      inputFidelity: '参考图保真度',
       advancedControls: '高级参数',
       seed: '种子',
       seedPlaceholder: '可选固定种子',
@@ -49,7 +75,9 @@ export const messages: Record<Locale, AppCopy> = {
       generateImages: '开始生成',
       optionLabels: {
         quality: {
-          standard: '标准',
+          auto: '自动',
+          low: '低',
+          medium: '中',
           high: '高质量',
         },
         style: {
@@ -64,6 +92,11 @@ export const messages: Record<Locale, AppCopy> = {
           auto: '自动',
           transparent: '透明',
           opaque: '不透明',
+        },
+        inputFidelity: {
+          auto: '自动',
+          low: '低',
+          high: '高',
         },
       },
     },
@@ -147,12 +180,6 @@ export const messages: Record<Locale, AppCopy> = {
   en: {
     header: {
       eyebrow: 'Managed Image Studio',
-      tagline: 'Generate images through a local OpenAI-compatible relay so the frontend never exposes the upstream key, while keeping saved generation history.',
-      relayTarget: 'Relay target',
-      mode: 'Mode',
-      modeValue: 'OpenAI-compatible proxy',
-      exposure: 'Exposure',
-      exposureValue: 'Frontend never sees upstream key',
       language: 'Language',
       chinese: '中文',
       english: 'EN',
@@ -164,6 +191,41 @@ export const messages: Record<Locale, AppCopy> = {
       mainPrompt: 'Main prompt',
       mainPromptPlaceholder:
         'Editorial portrait of a ceramic astronaut inside a rain-soaked greenhouse, cinematic light, crisp details',
+      promptTemplatesTitle: 'Starter prompts',
+      promptTemplates: [
+        {
+          title: 'Product poster',
+          description: 'For ecommerce images and launch posters',
+          prompt:
+            'Premium consumer electronics product poster, product centered, soft studio lighting, clean background, crisp details, realistic materials, professional advertising photography, 4K',
+          negativePrompt:
+            'low resolution, text watermark, distorted shape, cluttered background, overexposed, cheap materials',
+        },
+        {
+          title: 'Portrait',
+          description: 'For avatars, characters, and campaign images',
+          prompt:
+            'Half-body portrait, cinematic rim light, natural skin texture, shallow depth of field, calm expression, clean background, professional portrait photography, rich details',
+          negativePrompt:
+            'extra fingers, distorted face, plastic skin, blurry, watermark, over-smoothed skin',
+        },
+        {
+          title: 'Interior',
+          description: 'For home design and architectural mood images',
+          prompt:
+            'Modern living room interior, morning light through large windows, wood and textile materials, tidy composition, realistic architectural photography, warm but not oversaturated',
+          negativePrompt:
+            'wrong perspective, distorted furniture, clutter, low resolution, extreme wide angle, watermark',
+        },
+        {
+          title: 'Illustration',
+          description: 'For covers and story scenes',
+          prompt:
+            'Warm storybook illustration scene, small coffee shop on a street corner at dusk, soft light through windows, natural character interaction, rich details, cohesive colors, refined composition',
+          negativePrompt:
+            'messy linework, wrong proportions, text, watermark, oversaturated, low quality',
+        },
+      ],
       negativePrompt: 'Negative prompt',
       negativePromptPlaceholder: 'blurry, extra limbs, text watermark, oversaturated',
       negativePromptHint: 'Use this to steer away from unwanted artifacts and styles.',
@@ -177,6 +239,11 @@ export const messages: Record<Locale, AppCopy> = {
       style: 'Style',
       responseFormat: 'Response format',
       background: 'Background',
+      referenceImages: 'Reference images / image editing',
+      referenceImagesHint: 'Upload PNG, JPEG, or WebP images. The model will use them as visual references and edit by prompt. Up to 4 images, 10MB each.',
+      uploadReferenceImages: 'Upload reference images',
+      removeReferenceImage: 'Remove',
+      inputFidelity: 'Input fidelity',
       advancedControls: 'Advanced controls',
       seed: 'Seed',
       seedPlaceholder: 'Optional fixed seed',
@@ -191,7 +258,9 @@ export const messages: Record<Locale, AppCopy> = {
       generateImages: 'Generate images',
       optionLabels: {
         quality: {
-          standard: 'standard',
+          auto: 'auto',
+          low: 'low',
+          medium: 'medium',
           high: 'high',
         },
         style: {
@@ -206,6 +275,11 @@ export const messages: Record<Locale, AppCopy> = {
           auto: 'auto',
           transparent: 'transparent',
           opaque: 'opaque',
+        },
+        inputFidelity: {
+          auto: 'auto',
+          low: 'low',
+          high: 'high',
         },
       },
     },

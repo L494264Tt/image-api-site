@@ -9,6 +9,8 @@ RUN pip install --no-cache-dir --upgrade pip
 
 COPY pyproject.toml README.md ./
 COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./
 
 RUN pip install --no-cache-dir .
 

@@ -65,11 +65,9 @@ defineProps<{
   display: grid;
   gap: 1.25rem;
   padding: clamp(1.15rem, 2vw, 1.8rem);
-  border-radius: 1.6rem;
+  border-radius: 0.5rem;
   border: 1px solid var(--line-strong);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 241, 233, 0.88)),
-    var(--panel-bg);
+  background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--shadow-soft);
 }
 
@@ -107,7 +105,7 @@ h2 {
   gap: 0.45rem;
   min-height: 240px;
   padding: 1.2rem;
-  border-radius: 1.3rem;
+  border-radius: 0.5rem;
   border: 1px dashed rgba(18, 50, 43, 0.16);
   text-align: center;
   background: rgba(255, 255, 255, 0.52);
@@ -131,7 +129,7 @@ h2 {
 
 .result-card {
   overflow: hidden;
-  border-radius: 1.25rem;
+  border-radius: 0.5rem;
   border: 1px solid rgba(18, 50, 43, 0.12);
   background: rgba(255, 255, 255, 0.88);
 }
@@ -166,7 +164,7 @@ h2 {
   align-items: center;
   justify-content: center;
   padding: 0.35rem 0.7rem;
-  border-radius: 999px;
+  border-radius: 0.5rem;
   background: rgba(18, 50, 43, 0.1);
   color: var(--ink-strong);
   font-size: 0.82rem;
@@ -190,7 +188,7 @@ h2 {
   justify-content: center;
   min-width: 6.2rem;
   padding: 0.72rem 1rem;
-  border-radius: 999px;
+  border-radius: 0.5rem;
   border: 1px solid transparent;
   background: var(--ink-strong);
   color: #fff;

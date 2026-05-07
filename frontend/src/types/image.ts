@@ -13,10 +13,26 @@ export interface ImageGenerationFormValues {
   style: string
   responseFormat: ResponseFormat
   background: string
+  inputFidelity: string
   seed: string
   steps: string
   cfgScale: string
   user: string
+}
+
+export interface ReferenceImageInput {
+  data_url?: string
+  upload_id?: number
+  mime_type?: string
+  name?: string
+}
+
+export interface UploadResponse {
+  id: number
+  file_name: string
+  mime_type: string
+  file_size_bytes: number
+  created_at: string
 }
 
 export interface ImageGenerationRequest {
@@ -30,6 +46,8 @@ export interface ImageGenerationRequest {
   response_format?: ResponseFormat
   negative_prompt?: string
   background?: string
+  input_fidelity?: string
+  reference_images?: ReferenceImageInput[]
   seed?: number
   steps?: number
   cfg_scale?: number
@@ -48,14 +66,35 @@ export interface ImageGenerationResponse {
   data: ImageGenerationDataItem[]
 }
 
+export type GenerationJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled'
+
+export interface ModelCapability {
+  id: string
+  label: string
+  sizes: string[]
+  qualities: string[]
+  backgrounds: string[]
+  supports_text_to_image: boolean
+  supports_image_to_image: boolean
+  supports_image_input: boolean
+  default_endpoint: string
+  input_fidelities: string[]
+  supports_transparent_background: boolean
+  estimated_seconds: number
+}
+
 export interface ImageHistoryItem {
   id: number
   prompt: string
   revised_prompt?: string
   model: string
+  requested_model?: string
+  endpoint_type?: string
   size: string
   mime_type: string
   image_url: string
+  thumbnail_url?: string
+  is_favorite: boolean
   created_at: string
 }
 
@@ -64,6 +103,25 @@ export interface ImageHistoryResponse {
   total: number
   page: number
   page_size: number
+}
+
+export interface GenerationJobResponse {
+  id: number
+  status: GenerationJobStatus
+  progress_message: string
+  error_message?: string
+  error_code?: string
+  error_category?: string
+  raw_error_message?: string
+  attempt_count: number
+  max_attempts: number
+  requested_model?: string
+  effective_model?: string
+  endpoint_type?: string
+  image?: ImageHistoryItem
+  created_at: string
+  started_at?: string
+  completed_at?: string
 }
 
 export interface RenderableImage {
@@ -81,7 +139,11 @@ export interface HistoryRenderableImage extends RenderableImage {
   recordId: number
   prompt: string
   model: string
+  originalUrl: string
+  requestedModel?: string
+  endpointType?: string
   size: string
+  isFavorite: boolean
   createdAt: string
 }
 
@@ -97,7 +159,9 @@ export interface FrontendConfig {
   styleOptions: string[]
   responseFormatOptions: ResponseFormat[]
   backgroundOptions: string[]
+  inputFidelityOptions: string[]
   maxImages: number
+  modelCapabilities: ModelCapability[]
 }
 
 export interface HealthSummary {
@@ -105,14 +169,20 @@ export interface HealthSummary {
   message: string
 }
 
+export interface PromptTemplateCopy {
+  id?: number
+  title: string
+  description: string
+  category?: string
+  prompt: string
+  negativePrompt: string
+  variables?: string[]
+  isSystem?: boolean
+  isFavorite?: boolean
+}
+
 export interface HeaderCopy {
   eyebrow: string
-  tagline: string
-  relayTarget: string
-  mode: string
-  modeValue: string
-  exposure: string
-  exposureValue: string
   language: string
   chinese: string
   english: string
@@ -124,6 +194,8 @@ export interface FormCopy {
   characters: string
   mainPrompt: string
   mainPromptPlaceholder: string
+  promptTemplatesTitle: string
+  promptTemplates: PromptTemplateCopy[]
   negativePrompt: string
   negativePromptPlaceholder: string
   negativePromptHint: string
@@ -137,6 +209,11 @@ export interface FormCopy {
   style: string
   responseFormat: string
   background: string
+  referenceImages: string
+  referenceImagesHint: string
+  uploadReferenceImages: string
+  removeReferenceImage: string
+  inputFidelity: string
   advancedControls: string
   seed: string
   seedPlaceholder: string
@@ -154,6 +231,7 @@ export interface FormCopy {
     style: Record<string, string>
     responseFormat: Record<string, string>
     background: Record<string, string>
+    inputFidelity: Record<string, string>
   }
 }
 

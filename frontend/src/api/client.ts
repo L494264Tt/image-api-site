@@ -1,11 +1,14 @@
 import type { CurrentUser, LoginRequest, LoginResponse } from '../types/auth'
 import type {
   FrontendConfig,
+  GenerationJobResponse,
   HealthSummary,
   ImageGenerationRequest,
   ImageGenerationResponse,
   ImageHistoryResponse,
+  PromptTemplateCopy,
   ResponseFormat,
+  UploadResponse,
 } from '../types/image'
 
 type JsonRecord = Record<string, unknown>
@@ -32,12 +35,13 @@ const DEFAULT_APP_TITLE = import.meta.env.VITE_APP_TITLE?.trim() || 'Canvas Rela
 const DEFAULT_API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || '/api')
 
 const DEFAULT_MODELS = ['gpt-image-2']
-const DEFAULT_SIZES = ['1024x1024', '1536x1024', '1024x1536']
+const DEFAULT_SIZES = ['auto', '1024x1024', '1536x1024', '1024x1536']
 const DEFAULT_ASPECT_RATIOS = ['1:1', '3:2', '2:3', '16:9', '9:16']
-const DEFAULT_QUALITIES = ['standard', 'high']
+const DEFAULT_QUALITIES = ['auto', 'low', 'medium', 'high']
 const DEFAULT_STYLES = ['vivid', 'natural']
 const DEFAULT_RESPONSE_FORMATS: ResponseFormat[] = ['b64_json']
 const DEFAULT_BACKGROUNDS = ['auto', 'transparent', 'opaque']
+const DEFAULT_INPUT_FIDELITIES = ['auto', 'low', 'high']
 
 export function getApiBaseUrl(): string {
   return DEFAULT_API_BASE_URL
@@ -68,7 +72,22 @@ export function createDefaultFrontendConfig(): FrontendConfig {
     styleOptions: DEFAULT_STYLES,
     responseFormatOptions: DEFAULT_RESPONSE_FORMATS,
     backgroundOptions: DEFAULT_BACKGROUNDS,
+    inputFidelityOptions: DEFAULT_INPUT_FIDELITIES,
     maxImages: 1,
+    modelCapabilities: DEFAULT_MODELS.map((model) => ({
+      id: model,
+      label: model,
+      sizes: DEFAULT_SIZES,
+      qualities: DEFAULT_QUALITIES,
+      backgrounds: DEFAULT_BACKGROUNDS,
+      supports_text_to_image: true,
+      supports_image_to_image: model !== 'gpt-image-2',
+      supports_image_input: true,
+      default_endpoint: model === 'gpt-image-2' ? 'responses' : 'images.edits',
+      input_fidelities: DEFAULT_INPUT_FIDELITIES,
+      supports_transparent_background: true,
+      estimated_seconds: 90,
+    })),
   }
 }
 
@@ -114,10 +133,19 @@ export function mergeFrontendConfig(
         ? partialConfig.backgroundOptions
         : baseConfig.backgroundOptions,
     ),
+    inputFidelityOptions: dedupeStrings(
+      partialConfig.inputFidelityOptions?.length
+        ? partialConfig.inputFidelityOptions
+        : baseConfig.inputFidelityOptions,
+    ),
     maxImages:
       typeof partialConfig.maxImages === 'number' && partialConfig.maxImages > 0
         ? partialConfig.maxImages
         : baseConfig.maxImages,
+    modelCapabilities:
+      partialConfig.modelCapabilities?.length
+        ? partialConfig.modelCapabilities
+        : baseConfig.modelCapabilities,
   }
 }
 
@@ -238,6 +266,42 @@ export const apiClient = {
     }
   },
 
+  async fetchPromptTemplates(): Promise<PromptTemplateCopy[]> {
+    const payload = await requestJson<unknown>('/prompt-templates', undefined, { auth: true })
+    return normalizePromptTemplates(payload)
+  },
+
+  async createPromptTemplate(template: PromptTemplateCopy): Promise<PromptTemplateCopy> {
+    const payload = await requestJson<unknown>(
+      '/prompt-templates',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          title: template.title,
+          description: template.description,
+          category: template.category || 'general',
+          prompt: template.prompt,
+          negative_prompt: template.negativePrompt,
+          variables: template.variables || [],
+        }),
+      },
+      { auth: true },
+    )
+    return normalizePromptTemplate(payload)
+  },
+
+  async setPromptTemplateFavorite(templateId: number, isFavorite: boolean): Promise<PromptTemplateCopy> {
+    const payload = await requestJson<unknown>(
+      `/prompt-templates/${templateId}/favorite`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ is_favorite: isFavorite }),
+      },
+      { auth: true },
+    )
+    return normalizePromptTemplate(payload)
+  },
+
   async login(payload: LoginRequest): Promise<LoginResponse> {
     const response = await requestJson<LoginResponse>(
       '/auth/login',
@@ -275,13 +339,124 @@ export const apiClient = {
     )
   },
 
-  async fetchHistory(page = 1, pageSize = 24): Promise<ImageHistoryResponse> {
+  async createGenerationJob(payload: ImageGenerationRequest): Promise<GenerationJobResponse> {
+    return requestJson<GenerationJobResponse>(
+      '/images/generation-jobs',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      { auth: true },
+    )
+  },
+
+  async fetchGenerationJob(jobId: number): Promise<GenerationJobResponse> {
+    return requestJson<GenerationJobResponse>(`/images/generation-jobs/${jobId}`, undefined, { auth: true })
+  },
+
+  async fetchGenerationJobs(limit = 20): Promise<GenerationJobResponse[]> {
+    return requestJson<GenerationJobResponse[]>(`/images/generation-jobs?limit=${limit}`, undefined, { auth: true })
+  },
+
+  async cancelGenerationJob(jobId: number): Promise<GenerationJobResponse> {
+    return requestJson<GenerationJobResponse>(
+      `/images/generation-jobs/${jobId}/cancel`,
+      { method: 'POST' },
+      { auth: true },
+    )
+  },
+
+  async retryGenerationJob(jobId: number): Promise<GenerationJobResponse> {
+    return requestJson<GenerationJobResponse>(
+      `/images/generation-jobs/${jobId}/retry`,
+      { method: 'POST' },
+      { auth: true },
+    )
+  },
+
+  async uploadReferenceImage(file: File): Promise<UploadResponse> {
+    const formData = new FormData()
+    formData.set('file', file)
+    return requestJson<UploadResponse>(
+      '/uploads',
+      {
+        method: 'POST',
+        body: formData,
+      },
+      { auth: true, contentType: null },
+    )
+  },
+
+  async fetchHistory(
+    page = 1,
+    pageSize = 24,
+    filters: { search?: string; model?: string; size?: string; favorite?: boolean; createdFrom?: string; createdTo?: string } = {},
+  ): Promise<ImageHistoryResponse> {
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: String(pageSize),
+    })
+    if (filters.search) {
+      params.set('search', filters.search)
+    }
+    if (filters.model) {
+      params.set('model', filters.model)
+    }
+    if (filters.size) {
+      params.set('size', filters.size)
+    }
+    if (typeof filters.favorite === 'boolean') {
+      params.set('favorite', String(filters.favorite))
+    }
+    if (filters.createdFrom) {
+      params.set('created_from', new Date(filters.createdFrom).toISOString())
+    }
+    if (filters.createdTo) {
+      params.set('created_to', new Date(`${filters.createdTo}T23:59:59`).toISOString())
+    }
     const payload = await requestJson<unknown>(
-      `/images/history?page=${page}&page_size=${pageSize}`,
+      `/images/history?${params.toString()}`,
       undefined,
       { auth: true },
     )
     return normalizeHistory(payload)
+  },
+
+  async setImageFavorite(imageId: number, isFavorite: boolean): Promise<void> {
+    await requestJson(
+      `/images/${imageId}/favorite`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ is_favorite: isFavorite }),
+      },
+      { auth: true },
+    )
+  },
+
+  async bulkDeleteImages(imageIds: number[]): Promise<void> {
+    await requestJson(
+      '/images/bulk-delete',
+      {
+        method: 'POST',
+        body: JSON.stringify({ image_ids: imageIds }),
+      },
+      { auth: true },
+    )
+  },
+
+  async bulkDownloadImages(imageIds: number[]): Promise<{ objectUrl: string; fileName: string }> {
+    const blob = await requestBlob(
+      '/images/bulk-download',
+      {
+        method: 'POST',
+        body: JSON.stringify({ image_ids: imageIds }),
+      },
+      { auth: true },
+    )
+    return {
+      objectUrl: URL.createObjectURL(blob),
+      fileName: 'image-history.zip',
+    }
   },
 
   async fetchProtectedImageAsset(
@@ -344,7 +519,66 @@ function normalizeConfig(payload: unknown): Partial<FrontendConfig> {
       ...readStringArray(source.backgroundOptions),
       ...readStringArray(source.background_options),
     ]),
+    inputFidelityOptions: dedupeStrings([
+      ...readStringArray(source.inputFidelityOptions),
+      ...readStringArray(source.input_fidelity_options),
+    ]),
     maxImages: readNumber(source.maxImages) || readNumber(source.max_images) || undefined,
+    modelCapabilities: normalizeModelCapabilities(source.modelCapabilities || source.model_capabilities),
+  }
+}
+
+function normalizeModelCapabilities(payload: unknown) {
+  if (!Array.isArray(payload)) {
+    return []
+  }
+  return payload.flatMap((entry) => {
+    const source = asRecord(entry)
+    const id = readString(source?.id)
+    if (!id) {
+      return []
+    }
+    return [
+      {
+        id,
+        label: readString(source?.label) || id,
+        sizes: readStringArray(source?.sizes),
+        qualities: readStringArray(source?.qualities),
+        backgrounds: readStringArray(source?.backgrounds),
+        supports_text_to_image: source?.supports_text_to_image === undefined ? true : Boolean(source.supports_text_to_image),
+        supports_image_to_image: source?.supports_image_to_image === undefined ? true : Boolean(source.supports_image_to_image),
+        supports_image_input: source?.supports_image_input === undefined ? true : Boolean(source.supports_image_input),
+        default_endpoint: readString(source?.default_endpoint) || 'responses',
+        input_fidelities: readStringArray(source?.input_fidelities),
+        supports_transparent_background: Boolean(source?.supports_transparent_background),
+        estimated_seconds: readNumber(source?.estimated_seconds) || 90,
+      },
+    ]
+  })
+}
+
+function normalizePromptTemplates(payload: unknown): PromptTemplateCopy[] {
+  if (!Array.isArray(payload)) {
+    return []
+  }
+  return payload.flatMap((entry) => {
+    const template = normalizePromptTemplate(entry)
+    return template.prompt ? [template] : []
+  })
+}
+
+function normalizePromptTemplate(payload: unknown): PromptTemplateCopy {
+  const source = asRecord(payload)
+  return {
+    id: readNumber(source?.id),
+    title: readString(source?.title) || '',
+    description: readString(source?.description) || '',
+    category: readString(source?.category),
+    prompt: readString(source?.prompt) || '',
+    negativePrompt: readString(source?.negative_prompt) || '',
+    variables: readStringArray(source?.variables),
+    isSystem: Boolean(source?.is_system),
+    isFavorite: Boolean(source?.is_favorite),
   }
 }
 
@@ -401,9 +635,13 @@ function normalizeHistoryItem(entry: unknown) {
       prompt,
       revised_prompt: readString(source?.revised_prompt),
       model,
+      requested_model: readString(source?.requested_model),
+      endpoint_type: readString(source?.endpoint_type),
       size,
       mime_type: mimeType,
       image_url: imageUrl,
+      thumbnail_url: readString(source?.thumbnail_url),
+      is_favorite: Boolean(source?.is_favorite),
       created_at: createdAt,
     },
   ]
@@ -487,9 +725,16 @@ function buildUrl(path: string): string {
     return path
   }
 
-  if (path.startsWith('/')) {
-    return path
+  const normalizedPath = path.replace(/^\/+/, '')
+  if (/^https?:\/\//i.test(DEFAULT_API_BASE_URL)) {
+    return `${DEFAULT_API_BASE_URL}/${normalizedPath}`
   }
 
-  return `${DEFAULT_API_BASE_URL}/${path.replace(/^\/+/, '')}`
+  const normalizedBase = normalizeBaseUrl(DEFAULT_API_BASE_URL)
+  const normalizedBasePath = normalizedBase.replace(/^\/+/, '')
+  if (normalizedPath === normalizedBasePath || normalizedPath.startsWith(`${normalizedBasePath}/`)) {
+    return `/${normalizedPath}`
+  }
+
+  return `${normalizedBase}/${normalizedPath}`
 }

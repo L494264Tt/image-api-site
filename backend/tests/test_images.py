@@ -20,6 +20,7 @@ def test_get_config_returns_frontend_bootstrap_data() -> None:
     assert "1024x1024" in response.json()["supportedSizes"]
     assert response.json()["styleOptions"] == ["vivid", "natural"]
     assert response.json()["responseFormatOptions"] == ["b64_json"]
+    assert response.json()["inputFidelityOptions"] == ["auto", "low", "high"]
     assert response.json()["maxImages"] == 1
 
 
@@ -41,7 +42,7 @@ def test_get_models_returns_backend_defined_model() -> None:
 
 def test_post_images_generations_proxies_upstream_response() -> None:
     client = TestClient(app)
-    login = client.post("/api/auth/login", json={"username": "admin", "password": "replace-with-a-strong-admin-password"})
+    login = client.post("/api/auth/login", json={"username": "admin", "password": "StrongTestAdminPass123!"})
     token = login.json()["access_token"]
     payload = {
         "prompt": "A cinematic fox in a snowy forest",
@@ -105,6 +106,32 @@ def test_build_responses_payload_uses_image_generation_tool() -> None:
     assert "Avoid: blurry" in payload["input"][0]["content"][0]["text"]
 
 
+def test_build_responses_payload_includes_reference_images() -> None:
+    service = OpenAIImageService(get_settings())
+    payload = service._build_responses_payload(
+        request=service_request(
+            prompt="Keep the product, change the background to a marble studio",
+            input_fidelity="high",
+            reference_images=[
+                {
+                    "data_url": "data:image/png;base64,ZmFrZQ==",
+                    "mime_type": "image/png",
+                    "name": "product.png",
+                }
+            ],
+        )
+    )
+
+    content = payload["input"][0]["content"]
+    assert content[0]["type"] == "input_text"
+    assert content[1] == {
+        "type": "input_image",
+        "image_url": "data:image/png;base64,ZmFrZQ==",
+    }
+    assert payload["tools"][0]["input_fidelity"] == "high"
+    assert payload["tools"][0]["action"] == "edit"
+
+
 def test_parse_responses_stream_extracts_image_generation_result() -> None:
     service = OpenAIImageService(get_settings())
     body = "\n".join(
@@ -134,7 +161,7 @@ def test_parse_responses_stream_extracts_image_generation_result() -> None:
 
 def test_generated_image_is_saved_to_history() -> None:
     client = TestClient(app)
-    token = client.post("/api/auth/login", json={"username": "admin", "password": "replace-with-a-strong-admin-password"}).json()["access_token"]
+    token = client.post("/api/auth/login", json={"username": "admin", "password": "StrongTestAdminPass123!"}).json()["access_token"]
     payload = {
         "prompt": "A cinematic fox in a snowy forest",
         "model": "gpt-image-2",
@@ -167,6 +194,45 @@ def test_generated_image_is_saved_to_history() -> None:
     items = history_response.json()["items"]
     assert len(items) == 1
     assert items[0]["prompt"] == payload["prompt"]
+
+
+def test_generation_job_rejects_inline_reference_image_data_url() -> None:
+    client = TestClient(app)
+    token = client.post("/api/auth/login", json={"username": "admin", "password": "StrongTestAdminPass123!"}).json()["access_token"]
+
+    response = client.post(
+        "/api/images/generation-jobs",
+        json={
+            "prompt": "Use this reference",
+            "size": "1024x1024",
+            "reference_images": [{"data_url": "data:image/png;base64,ZmFrZQ=="}],
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 400
+
+
+def test_generation_job_quota_limits_active_jobs() -> None:
+    client = TestClient(app)
+    token = client.post("/api/auth/login", json={"username": "admin", "password": "StrongTestAdminPass123!"}).json()["access_token"]
+
+    for index in range(3):
+        response = client.post(
+            "/api/images/generation-jobs",
+            json={"prompt": f"Queued image {index}", "size": "1024x1024"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 202
+        assert response.json()["raw_error_message"] is None
+
+    response = client.post(
+        "/api/images/generation-jobs",
+        json={"prompt": "One too many", "size": "1024x1024"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 429
 
 
 def service_request(**overrides):

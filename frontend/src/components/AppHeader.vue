@@ -3,8 +3,6 @@ import type { HeaderCopy, Locale } from '../types/image'
 
 defineProps<{
   title: string
-  tagline: string
-  apiBaseUrl: string
   locale: Locale
   copy: HeaderCopy
 }>()
@@ -15,28 +13,17 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <header class="hero-panel">
-    <div class="hero-panel__copy">
-      <p class="eyebrow">{{ copy.eyebrow }}</p>
-      <h1>{{ title }}</h1>
-      <p class="hero-panel__tagline">{{ tagline }}</p>
+  <header class="app-header">
+    <div class="app-header__brand">
+      <span class="app-header__mark" aria-hidden="true">CR</span>
+      <div>
+        <p class="app-header__eyebrow">{{ copy.eyebrow }}</p>
+        <h1>{{ title }}</h1>
+      </div>
     </div>
 
-    <div class="hero-panel__meta">
-      <div class="meta-card">
-        <span class="meta-card__label">{{ copy.relayTarget }}</span>
-        <code>{{ apiBaseUrl }}</code>
-      </div>
-      <div class="meta-card">
-        <span class="meta-card__label">{{ copy.mode }}</span>
-        <strong>{{ copy.modeValue }}</strong>
-      </div>
-      <div class="meta-card">
-        <span class="meta-card__label">{{ copy.exposure }}</span>
-        <strong>{{ copy.exposureValue }}</strong>
-      </div>
-      <div class="meta-card">
-        <span class="meta-card__label">{{ copy.language }}</span>
+    <div class="app-header__actions">
+      <div class="language-control" :aria-label="copy.language">
         <div class="locale-switch">
           <button
             type="button"
@@ -56,7 +43,8 @@ const emit = defineEmits<{
           </button>
         </div>
       </div>
-      <div v-if="$slots.user" class="meta-card meta-card--user">
+
+      <div v-if="$slots.user" class="app-header__user">
         <slot name="user" />
       </div>
     </div>
@@ -64,101 +52,82 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
-.hero-panel {
-  position: relative;
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr);
-  align-items: end;
-}
-
-.hero-panel__copy {
-  display: grid;
+.app-header {
+  min-height: 4.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--line-strong);
 }
 
-.eyebrow {
+.app-header__brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.app-header__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border-radius: 0.5rem;
+  background: var(--ink-strong);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.app-header__eyebrow {
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
-  font-size: 0.74rem;
-  color: var(--accent-strong);
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  color: var(--ink-muted);
 }
 
 h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2.8rem, 6vw, 5.25rem);
-  line-height: 0.94;
-  letter-spacing: -0.06em;
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  line-height: 1.1;
   color: var(--ink-strong);
 }
 
-.hero-panel__tagline {
-  margin: 0;
-  max-width: 42rem;
-  font-size: 1.05rem;
-  color: var(--ink-soft);
-}
-
-.hero-panel__meta {
-  display: grid;
-  gap: 0.85rem;
-}
-
-.meta-card {
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--line-strong);
-  border-radius: 1.1rem;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(249, 243, 232, 0.78)),
-    var(--panel-bg);
-  box-shadow: var(--shadow-soft);
-}
-
-.meta-card--user {
+.app-header__actions {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 
-.meta-card__label {
-  display: block;
-  margin-bottom: 0.45rem;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--ink-muted);
-}
-
-code,
-strong {
-  color: var(--ink-strong);
-  font-size: 0.98rem;
-}
-
-button {
-  font: inherit;
-}
-
-code {
-  display: inline-flex;
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
-  background: rgba(18, 50, 43, 0.08);
+.app-header__user {
+  min-width: min(18rem, 38vw);
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--line-strong);
 }
 
 .locale-switch {
   display: inline-flex;
-  gap: 0.45rem;
-  flex-wrap: wrap;
+  padding: 0.2rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .locale-switch__button {
-  border: 1px solid rgba(18, 50, 43, 0.12);
-  background: rgba(18, 50, 43, 0.04);
+  border: 0;
+  background: transparent;
   color: var(--ink-strong);
-  border-radius: 999px;
-  padding: 0.45rem 0.8rem;
+  border-radius: 0.5rem;
+  padding: 0.38rem 0.65rem;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -167,9 +136,20 @@ code {
   color: #fff;
 }
 
-@media (max-width: 920px) {
-  .hero-panel {
-    grid-template-columns: 1fr;
+@media (max-width: 760px) {
+  .app-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .app-header__actions {
+    justify-content: space-between;
+  }
+
+  .app-header__user {
+    min-width: 0;
+    padding-left: 0;
+    border-left: 0;
   }
 }
 </style>

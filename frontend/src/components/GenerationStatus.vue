@@ -9,7 +9,6 @@ const props = defineProps<{
   submitting: boolean
   errorMessage: string | null
   resultCount: number
-  lastModel: string
   copy: StatusCopy
 }>()
 
@@ -57,16 +56,8 @@ const headline = computed(() => {
 
     <div class="status-card__facts">
       <div class="fact">
-        <span class="fact__label">{{ copy.activeModel }}</span>
-        <strong>{{ lastModel }}</strong>
-      </div>
-      <div class="fact">
         <span class="fact__label">{{ copy.renderedImages }}</span>
         <strong>{{ resultCount }}</strong>
-      </div>
-      <div class="fact">
-        <span class="fact__label">{{ copy.sessionMode }}</span>
-        <strong>{{ submitting ? copy.submitting : copy.waiting }}</strong>
       </div>
     </div>
 
@@ -77,14 +68,14 @@ const headline = computed(() => {
 <style scoped>
 .status-card {
   display: grid;
-  gap: 1rem;
-  padding: 1.3rem;
-  border-radius: 1.35rem;
+  grid-template-columns: minmax(180px, auto) minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
   border: 1px solid var(--line-strong);
-  background:
-    radial-gradient(circle at top right, rgba(190, 124, 73, 0.16), transparent 40%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(252, 247, 240, 0.92));
-  box-shadow: var(--shadow-soft);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 22px rgba(66, 52, 33, 0.06);
 }
 
 .status-card__badge {
@@ -93,7 +84,7 @@ const headline = computed(() => {
   gap: 0.65rem;
   width: fit-content;
   padding: 0.55rem 0.85rem;
-  border-radius: 999px;
+  border-radius: 0.5rem;
   background: rgba(18, 50, 43, 0.08);
   color: var(--ink-strong);
   font-size: 0.88rem;
@@ -111,20 +102,27 @@ const headline = computed(() => {
 .status-card__message {
   margin: 0;
   color: var(--ink-soft);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status-card__facts {
-  display: grid;
-  gap: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .fact {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  display: inline-flex;
+  gap: 0.35rem;
   align-items: center;
-  padding-top: 0.85rem;
-  border-top: 1px solid rgba(18, 50, 43, 0.12);
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(18, 50, 43, 0.08);
+  border-radius: 0.5rem;
+  background: rgba(18, 50, 43, 0.04);
 }
 
 .fact__label {
@@ -138,9 +136,10 @@ strong {
 }
 
 .status-card__error {
+  grid-column: 1 / -1;
   margin: 0;
-  padding: 0.95rem 1rem;
-  border-radius: 1rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.5rem;
   background: rgba(172, 55, 43, 0.1);
   color: #8d2a20;
   border: 1px solid rgba(172, 55, 43, 0.2);
@@ -156,5 +155,20 @@ strong {
 
 .status-card--offline {
   color: #a33c30;
+}
+
+@media (max-width: 920px) {
+  .status-card {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .status-card__message {
+    white-space: normal;
+  }
+
+  .status-card__facts {
+    justify-content: flex-start;
+  }
 }
 </style>

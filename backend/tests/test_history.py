@@ -4,7 +4,7 @@ from app.main import app
 
 
 def get_token(client: TestClient) -> str:
-    response = client.post("/api/auth/login", json={"username": "admin", "password": "replace-with-a-strong-admin-password"})
+    response = client.post("/api/auth/login", json={"username": "admin", "password": "StrongTestAdminPass123!"})
     return response.json()["access_token"]
 
 

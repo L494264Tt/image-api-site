@@ -17,9 +17,7 @@
   line-height: 1.5;
   font-weight: 400;
   color: var(--ink-soft);
-  background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.72), transparent 45%),
-    linear-gradient(180deg, var(--bg), var(--bg-accent));
+  background: linear-gradient(180deg, #f7f4ee, #ebe4d8);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

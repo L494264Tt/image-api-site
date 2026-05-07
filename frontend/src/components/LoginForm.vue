@@ -80,13 +80,10 @@ function submitForm(): void {
   display: grid;
   gap: 1.4rem;
   padding: clamp(1.25rem, 2.4vw, 2rem);
-  border-radius: 1.6rem;
+  border-radius: 0.5rem;
   border: 1px solid var(--line-strong);
-  background:
-    radial-gradient(circle at top right, rgba(155, 99, 48, 0.12), transparent 35%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 243, 232, 0.88)),
-    var(--panel-bg);
-  box-shadow: var(--shadow-soft);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 10px 28px rgba(42, 38, 31, 0.08);
 }
 
 .auth-panel__header {
@@ -135,7 +132,7 @@ input {
   width: 100%;
   min-height: 3rem;
   padding: 0.8rem 1rem;
-  border-radius: 1rem;
+  border-radius: 0.5rem;
   border: 1px solid rgba(18, 50, 43, 0.14);
   background: rgba(255, 255, 255, 0.9);
   color: var(--ink-strong);
@@ -148,7 +145,7 @@ input:focus {
 
 .auth-form__error {
   padding: 0.9rem 1rem;
-  border-radius: 1rem;
+  border-radius: 0.5rem;
   background: rgba(172, 55, 43, 0.1);
   border: 1px solid rgba(172, 55, 43, 0.16);
   color: #8d2a20;
@@ -165,7 +162,7 @@ input:focus {
   min-height: 3rem;
   padding: 0.7rem 1.2rem;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0.5rem;
   background: var(--ink-strong);
   color: #fff;
   font-weight: 700;

@@ -1,4 +1,6 @@
-from sqlalchemy import func, select
+from datetime import datetime, timezone
+
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.image_generation import ImageGeneration
@@ -19,6 +21,8 @@ def create_image_generation(
     storage_path: str,
     file_name: str,
     file_size_bytes: int,
+    requested_model: str | None = None,
+    endpoint_type: str | None = None,
 ) -> ImageGeneration:
     image = ImageGeneration(
         user_id=user_id,
@@ -26,6 +30,8 @@ def create_image_generation(
         negative_prompt=negative_prompt,
         revised_prompt=revised_prompt,
         model=model,
+        requested_model=requested_model,
+        endpoint_type=endpoint_type,
         responses_model=responses_model,
         size=size,
         quality=quality,
@@ -46,13 +52,37 @@ def list_images_for_user(
     user_id: int,
     page: int,
     page_size: int,
+    search: str | None = None,
+    model: str | None = None,
+    size: str | None = None,
+    favorite: bool | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
 ) -> tuple[list[ImageGeneration], int]:
-    total = session.scalar(select(func.count()).select_from(ImageGeneration).where(ImageGeneration.user_id == user_id)) or 0
+    filters = [
+        ImageGeneration.user_id == user_id,
+        ImageGeneration.deleted_at.is_(None),
+    ]
+    if search:
+        pattern = f"%{search.strip()}%"
+        filters.append(or_(ImageGeneration.prompt.ilike(pattern), ImageGeneration.revised_prompt.ilike(pattern)))
+    if model:
+        filters.append(ImageGeneration.model == model)
+    if size:
+        filters.append(ImageGeneration.size == size)
+    if favorite is not None:
+        filters.append(ImageGeneration.is_favorite.is_(favorite))
+    if created_from is not None:
+        filters.append(ImageGeneration.created_at >= created_from)
+    if created_to is not None:
+        filters.append(ImageGeneration.created_at <= created_to)
+
+    total = session.scalar(select(func.count()).select_from(ImageGeneration).where(*filters)) or 0
     offset = max(page - 1, 0) * page_size
     items = list(
         session.scalars(
             select(ImageGeneration)
-            .where(ImageGeneration.user_id == user_id)
+            .where(*filters)
             .order_by(ImageGeneration.created_at.desc(), ImageGeneration.id.desc())
             .offset(offset)
             .limit(page_size)
@@ -66,5 +96,35 @@ def get_image_for_user(session: Session, *, image_id: int, user_id: int) -> Imag
         select(ImageGeneration).where(
             ImageGeneration.id == image_id,
             ImageGeneration.user_id == user_id,
+            ImageGeneration.deleted_at.is_(None),
         )
     )
+
+
+def set_image_favorite(session: Session, *, image_id: int, user_id: int, is_favorite: bool) -> ImageGeneration | None:
+    image = get_image_for_user(session, image_id=image_id, user_id=user_id)
+    if image is None:
+        return None
+    image.is_favorite = is_favorite
+    session.commit()
+    session.refresh(image)
+    return image
+
+
+def soft_delete_images_for_user(session: Session, *, image_ids: list[int], user_id: int) -> int:
+    if not image_ids:
+        return 0
+    items = list(
+        session.scalars(
+            select(ImageGeneration).where(
+                ImageGeneration.id.in_(image_ids),
+                ImageGeneration.user_id == user_id,
+                ImageGeneration.deleted_at.is_(None),
+            )
+        )
+    )
+    now = datetime.now(timezone.utc)
+    for item in items:
+        item.deleted_at = now
+    session.commit()
+    return len(items)

@@ -17,6 +17,7 @@ frontend/.vscode/
 # Generated artifacts
 backend/test_image_api_site.db
 backend/test_storage/
+storage/
 
 # OS/editor
 .DS_Store

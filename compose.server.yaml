@@ -28,9 +28,9 @@ services:
       timeout: 5s
       retries: 10
     volumes:
-      - /Users/l494264tt/DockerData/postgres/data:/var/lib/postgresql
-      - /Users/l494264tt/DockerData/postgres/log:/var/log/postgresql
-      - /Users/l494264tt/DockerData/postgres/config:/etc/postgresql/conf.d
+      - ./postgres/data:/var/lib/postgresql
+      - ./postgres/log:/var/log/postgresql
+      - ./postgres/config:/etc/postgresql/conf.d
 
   backend:
     build:
@@ -74,4 +74,14 @@ services:
     depends_on:
       - backend
     ports:
-      - "${FRONTEND_PORT:-8088}:80"
+      - "127.0.0.1:${FRONTEND_PORT:-18088}:80"
+    networks:
+      default:
+      caddy_proxy:
+        aliases:
+          - image-api-site
+
+networks:
+  caddy_proxy:
+    external: true
+    name: your-existing-proxy-network
