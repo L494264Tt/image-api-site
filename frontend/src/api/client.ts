@@ -1,4 +1,4 @@
-import type { CurrentUser, LoginRequest, LoginResponse } from '../types/auth'
+import type { AdminUser, AdminUserCreateRequest, CurrentUser, LoginRequest, LoginResponse } from '../types/auth'
 import type {
   FrontendConfig,
   GenerationJobResponse,
@@ -320,6 +320,35 @@ export const apiClient = {
     return requestJson<CurrentUser>('/auth/me', undefined, { auth: true })
   },
 
+  async fetchAdminUsers(): Promise<AdminUser[]> {
+    const payload = await requestJson<unknown>('/admin/users', undefined, { auth: true })
+    return normalizeAdminUsers(payload)
+  },
+
+  async createAdminUser(payload: AdminUserCreateRequest): Promise<AdminUser> {
+    const response = await requestJson<unknown>(
+      '/admin/users',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      { auth: true },
+    )
+    return normalizeAdminUser(response)
+  },
+
+  async updateAdminUserStatus(userId: number, isActive: boolean): Promise<AdminUser> {
+    const response = await requestJson<unknown>(
+      `/admin/users/${userId}/status`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: isActive }),
+      },
+      { auth: true },
+    )
+    return normalizeAdminUser(response)
+  },
+
   async logout(): Promise<void> {
     try {
       await requestJson('/auth/logout', { method: 'POST' }, { auth: true })
@@ -579,6 +608,37 @@ function normalizePromptTemplate(payload: unknown): PromptTemplateCopy {
     variables: readStringArray(source?.variables),
     isSystem: Boolean(source?.is_system),
     isFavorite: Boolean(source?.is_favorite),
+  }
+}
+
+function normalizeAdminUsers(payload: unknown): AdminUser[] {
+  if (!Array.isArray(payload)) {
+    return []
+  }
+
+  return payload.map((entry) => normalizeAdminUser(entry))
+}
+
+function normalizeAdminUser(payload: unknown): AdminUser {
+  const source = asRecord(payload)
+  const id = readNumber(source?.id)
+  const username = readString(source?.username)
+  const role = readString(source?.role)
+  const createdAt = readString(source?.created_at)
+  const updatedAt = readString(source?.updated_at)
+
+  if (!id || !username || !role || !createdAt || !updatedAt) {
+    throw new ApiError('管理员用户数据格式不正确。')
+  }
+
+  return {
+    id,
+    username,
+    role,
+    is_active: Boolean(source?.is_active),
+    created_at: createdAt,
+    updated_at: updatedAt,
+    last_login_at: readString(source?.last_login_at) || null,
   }
 }
 
