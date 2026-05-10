@@ -39,6 +39,7 @@ const uploadingReferences = ref(false)
 const selectedTemplate = ref<PromptTemplateCopy | null>(null)
 const templateVariables = reactive<Record<string, string>>({})
 const selectedTemplateCategory = ref('')
+const improvingPrompt = ref(false)
 
 watch(
   () => [props.config, props.availableModels] as const,
@@ -212,12 +213,33 @@ function applySelectedTemplate(): void {
   selectedTemplate.value = null
 }
 
-function improvePrompt(): void {
+function localImprovePrompt(prompt: string): string {
+  return `${prompt}，主体明确，构图干净，光线自然，细节清晰，真实材质，高质量商业摄影质感，避免杂乱背景和文字水印`
+}
+
+async function improvePrompt(): Promise<void> {
   const prompt = form.prompt.trim()
-  if (!prompt) {
+  if (!prompt || improvingPrompt.value) {
     return
   }
-  form.prompt = `${prompt}，主体明确，构图干净，光线自然，细节清晰，真实材质，高质量商业摄影质感，避免杂乱背景和文字水印`
+
+  improvingPrompt.value = true
+  try {
+    const improved = await apiClient.improvePrompt({
+      prompt,
+      negative_prompt: form.negativePrompt.trim() || undefined,
+      model: form.model || undefined,
+      style: form.style || undefined,
+    })
+    form.prompt = improved.prompt || localImprovePrompt(prompt)
+    if (improved.negative_prompt !== undefined) {
+      form.negativePrompt = improved.negative_prompt
+    }
+  } catch {
+    form.prompt = localImprovePrompt(prompt)
+  } finally {
+    improvingPrompt.value = false
+  }
 }
 
 function applyPrompt(prompt: string, negativePrompt = ''): void {
@@ -404,7 +426,9 @@ defineExpose({
           </button>
         </div>
         <div class="prompt-templates__actions">
-          <button type="button" :disabled="!form.prompt.trim()" @click="improvePrompt">优化提示词</button>
+          <button type="button" :disabled="!form.prompt.trim() || improvingPrompt" @click="improvePrompt">
+            {{ improvingPrompt ? '优化中...' : '优化提示词' }}
+          </button>
           <button type="button" :disabled="!form.prompt.trim()" @click="saveCurrentPromptAsTemplate">保存当前提示词</button>
         </div>
         <div v-if="selectedTemplate" class="template-variables">

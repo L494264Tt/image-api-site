@@ -17,6 +17,7 @@ import ImageGenerationForm from './components/ImageGenerationForm.vue'
 import LoginForm from './components/LoginForm.vue'
 import TaskCenter from './components/TaskCenter.vue'
 import UserMenu from './components/UserMenu.vue'
+import WorkspaceTabs, { type WorkspaceTabItem } from './components/WorkspaceTabs.vue'
 import { useActiveJobStorage } from './composables/useActiveJobStorage'
 import { getInitialLocale, messages, persistLocale } from './i18n'
 import type {
@@ -50,14 +51,16 @@ const historyItems = ref<HistoryRenderableImage[]>([])
 const historyTotal = ref(0)
 const historyPage = ref(1)
 const currentUser = ref<CurrentUser | null>(null)
+const activeWorkspaceTab = ref<'generate' | 'history' | 'admin'>('generate')
 const lastRequest = ref<ImageGenerationRequest | null>(null)
 const generatedAt = ref<string | null>(null)
 const activeJob = ref<GenerationJobResponse | null>(null)
 const generationJobs = ref<GenerationJobResponse[]>([])
 const promptTemplates = ref<PromptTemplateCopy[]>([])
-const historyFilters = ref({ search: '', model: '', size: '', favorite: false, createdFrom: '', createdTo: '' })
+const historyFilters = ref({ search: '', model: '', size: '', favorite: false, tag: '', project: '', createdFrom: '', createdTo: '' })
 const generationFormRef = ref<InstanceType<typeof ImageGenerationForm> | null>(null)
 let jobPollTimer: number | null = null
+let jobEventSource: EventSource | null = null
 const { persistActiveJob, getPersistedActiveJob, clearPersistedActiveJob } = useActiveJobStorage()
 
 const availableModels = computed(() => config.value.modelOptions)
@@ -67,7 +70,20 @@ const modelLabels = computed(() =>
 const availableSizes = computed(() => config.value.sizeOptions)
 const hasMoreHistory = computed(() => historyItems.value.length < historyTotal.value)
 const signedIn = computed(() => currentUser.value !== null)
+const isAdmin = computed(() => currentUser.value?.role === 'admin')
 const resultCount = computed(() => (signedIn.value ? historyItems.value.length : results.value.length))
+const workspaceTabs = computed<WorkspaceTabItem[]>(() => {
+  const tabs: WorkspaceTabItem[] = [
+    { id: 'generate', label: '生成' },
+    { id: 'history', label: '历史', badge: historyTotal.value > 0 ? String(historyTotal.value) : undefined },
+  ]
+
+  if (isAdmin.value) {
+    tabs.push({ id: 'admin', label: '管理' })
+  }
+
+  return tabs
+})
 const dateTimeFormatter = computed(
   () =>
     new Intl.DateTimeFormat(locale.value === 'zh' ? 'zh-CN' : 'en-US', {
@@ -93,6 +109,12 @@ onBeforeUnmount(() => {
 watch(locale, () => {
   persistLocale(locale.value)
   void loadShellData()
+})
+
+watch(isAdmin, (canUseAdmin) => {
+  if (!canUseAdmin && activeWorkspaceTab.value === 'admin') {
+    activeWorkspaceTab.value = 'generate'
+  }
 })
 
 async function initializeApp(): Promise<void> {
@@ -185,6 +207,7 @@ async function handleLogin(payload: LoginRequest): Promise<void> {
   try {
     const response = await apiClient.login(payload)
     currentUser.value = response.user
+    activeWorkspaceTab.value = 'generate'
     await loadPromptTemplates()
     await refreshGenerationJobs()
     await refreshHistory()
@@ -266,6 +289,8 @@ async function refreshHistory(): Promise<void> {
       model: historyFilters.value.model || undefined,
       size: historyFilters.value.size || undefined,
       favorite: historyFilters.value.favorite || undefined,
+      tag: historyFilters.value.tag || undefined,
+      project: historyFilters.value.project || undefined,
       createdFrom: historyFilters.value.createdFrom || undefined,
       createdTo: historyFilters.value.createdTo || undefined,
     })
@@ -297,6 +322,8 @@ async function loadMoreHistory(): Promise<void> {
       model: historyFilters.value.model || undefined,
       size: historyFilters.value.size || undefined,
       favorite: historyFilters.value.favorite || undefined,
+      tag: historyFilters.value.tag || undefined,
+      project: historyFilters.value.project || undefined,
       createdFrom: historyFilters.value.createdFrom || undefined,
       createdTo: historyFilters.value.createdTo || undefined,
     })
@@ -376,29 +403,76 @@ async function restoreActiveJob(): Promise<void> {
 function startJobPolling(jobId: number): void {
   stopJobPolling()
   submitting.value = true
-  jobPollTimer = window.setInterval(() => {
-    void pollGenerationJob(jobId)
-  }, 2500)
-  void pollGenerationJob(jobId)
+  void startJobEvents(jobId)
 }
 
 function stopJobPolling(): void {
+  stopJobEvents()
   if (jobPollTimer !== null) {
     window.clearInterval(jobPollTimer)
     jobPollTimer = null
   }
 }
 
+function stopJobEvents(): void {
+  if (jobEventSource) {
+    jobEventSource.close()
+    jobEventSource = null
+  }
+}
+
+function startPollingFallback(jobId: number): void {
+  if (jobPollTimer !== null) {
+    return
+  }
+  jobPollTimer = window.setInterval(() => {
+    void pollGenerationJob(jobId)
+  }, 2500)
+  void pollGenerationJob(jobId)
+}
+
+async function startJobEvents(jobId: number): Promise<void> {
+  try {
+    const { token } = await apiClient.createGenerationJobEventsToken(jobId)
+    const source = new EventSource(apiClient.buildGenerationJobEventsUrl(jobId, token))
+    jobEventSource = source
+
+    source.addEventListener('job', (event) => {
+      handleJobUpdate(JSON.parse(event.data) as GenerationJobResponse)
+    })
+    source.addEventListener('done', (event) => {
+      source.close()
+      if (jobEventSource === source) {
+        jobEventSource = null
+      }
+      void handleJobUpdate(JSON.parse(event.data) as GenerationJobResponse)
+    })
+    source.onerror = () => {
+      if (jobEventSource === source) {
+        jobEventSource = null
+      }
+      source.close()
+      startPollingFallback(jobId)
+    }
+  } catch {
+    startPollingFallback(jobId)
+  }
+}
+
+function handleJobUpdate(job: GenerationJobResponse): void {
+  activeJob.value = job
+  upsertGenerationJob(job)
+  statusMessage.value = job.progress_message
+  if (job.status === 'succeeded' || job.status === 'failed' || job.status === 'canceled') {
+    stopJobPolling()
+    void applyCompletedJob(job)
+  }
+}
+
 async function pollGenerationJob(jobId: number): Promise<void> {
   try {
     const job = await apiClient.fetchGenerationJob(jobId)
-    activeJob.value = job
-    upsertGenerationJob(job)
-    statusMessage.value = job.progress_message
-    if (job.status === 'succeeded' || job.status === 'failed') {
-      stopJobPolling()
-      await applyCompletedJob(job)
-    }
+    handleJobUpdate(job)
   } catch (error) {
     stopJobPolling()
     submitting.value = false
@@ -409,7 +483,7 @@ async function pollGenerationJob(jobId: number): Promise<void> {
 async function applyCompletedJob(job: GenerationJobResponse): Promise<void> {
   submitting.value = false
   clearPersistedActiveJob()
-  if (job.status === 'failed') {
+  if (job.status === 'failed' || job.status === 'canceled') {
     errorMessage.value = job.error_message || copy.value.app.generationError
     statusMessage.value = copy.value.app.generationError
     return
@@ -447,6 +521,8 @@ async function hydrateHistoryItems(items: ImageHistoryItem[]): Promise<HistoryRe
         endpointType: item.endpoint_type,
         size: item.size,
         isFavorite: item.is_favorite,
+        tags: item.tags,
+        project: item.project,
         createdAt: item.created_at,
       }
     }),
@@ -492,6 +568,7 @@ function expireSession(message: string): void {
 function resetSessionState(): void {
   clearStoredAccessToken()
   currentUser.value = null
+  activeWorkspaceTab.value = 'generate'
   replaceHistory([])
   replaceResults([])
   lastRequest.value = null
@@ -537,7 +614,7 @@ function handleLocaleChange(nextLocale: Locale): void {
   locale.value = nextLocale
 }
 
-async function handleHistoryFilters(nextFilters: { search: string; model: string; size: string; favorite: boolean; createdFrom: string; createdTo: string }): Promise<void> {
+async function handleHistoryFilters(nextFilters: { search: string; model: string; size: string; favorite: boolean; tag: string; project: string; createdFrom: string; createdTo: string }): Promise<void> {
   historyFilters.value = nextFilters
   await refreshHistory()
 }
@@ -598,11 +675,13 @@ async function handleRetryJob(job: GenerationJobResponse): Promise<void> {
 }
 
 function handleReusePrompt(item: HistoryRenderableImage): void {
+  activeWorkspaceTab.value = 'generate'
   generationFormRef.value?.applyPrompt(item.prompt)
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> {
+  activeWorkspaceTab.value = 'generate'
   generationFormRef.value?.applyPrompt(`基于这张图片继续修改：${item.prompt}`)
   const asset = await apiClient.fetchProtectedImageAsset(item.originalUrl, item.mimeType)
   const response = await fetch(asset.objectUrl)
@@ -650,67 +729,85 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
       </section>
 
       <template v-else>
-        <GenerationStatus
-          :health-state="healthState"
-          :status-message="statusMessage"
-          :loading-config="loadingConfig"
-          :submitting="submitting"
-          :error-message="errorMessage"
-          :result-count="resultCount"
-          :copy="copy.status"
+        <WorkspaceTabs
+          v-model="activeWorkspaceTab"
+          :tabs="workspaceTabs"
+          aria-label="工作台导航"
         />
 
-        <ImageGenerationForm
-          ref="generationFormRef"
-          :busy="submitting"
-          :config="config"
-          :available-models="availableModels"
-          :prompt-templates="promptTemplates.length ? promptTemplates : copy.form.promptTemplates"
-          :copy="copy.form"
-          @create-template="handleCreatePromptTemplate"
-          @toggle-template-favorite="handleTogglePromptTemplateFavorite"
-          @submit="handleGenerate"
-        />
+        <section v-show="activeWorkspaceTab === 'generate'" class="workspace-view">
+          <GenerationStatus
+            :health-state="healthState"
+            :status-message="statusMessage"
+            :loading-config="loadingConfig"
+            :submitting="submitting"
+            :error-message="errorMessage"
+            :result-count="resultCount"
+            :copy="copy.status"
+          />
 
-        <GenerationResults
-          :items="results"
-          :busy="submitting"
-          :generated-at-label="generatedAtLabel"
-          :last-prompt="lastPrompt"
-          :copy="copy.results"
-        />
+          <ImageGenerationForm
+            ref="generationFormRef"
+            :busy="submitting"
+            :config="config"
+            :available-models="availableModels"
+            :prompt-templates="promptTemplates.length ? promptTemplates : copy.form.promptTemplates"
+            :copy="copy.form"
+            @create-template="handleCreatePromptTemplate"
+            @toggle-template-favorite="handleTogglePromptTemplateFavorite"
+            @submit="handleGenerate"
+          />
 
-        <TaskCenter
-          :jobs="generationJobs"
-          :busy="taskLoading"
-          :format-date-time="formatDateTime"
-          @refresh="refreshGenerationJobs"
-          @cancel="handleCancelJob"
-          @retry="handleRetryJob"
-        />
+          <GenerationResults
+            :items="results"
+            :busy="submitting"
+            :generated-at-label="generatedAtLabel"
+            :last-prompt="lastPrompt"
+            :copy="copy.results"
+          />
 
-        <HistoryGallery
-          :items="historyItems"
-          :busy="historyLoading"
-          :error-message="historyErrorMessage"
-          :total="historyTotal"
-          :has-more="hasMoreHistory"
-          :available-models="availableModels"
-          :model-labels="modelLabels"
-          :available-sizes="availableSizes"
-          :format-date-time="formatDateTime"
-          :copy="copy.history"
-          @filters-change="handleHistoryFilters"
-          @load-more="loadMoreHistory"
-          @toggle-favorite="handleToggleFavorite"
-          @delete-images="handleDeleteImages"
-          @bulk-download="handleBulkDownload"
-          @open-image="handleOpenImage"
-          @download-image="handleDownloadImage"
-          @reuse-prompt="handleReusePrompt"
-          @edit-from-image="handleEditFromImage"
-          @refresh="refreshHistory"
-        />
+          <TaskCenter
+            :jobs="generationJobs"
+            :busy="taskLoading"
+            :format-date-time="formatDateTime"
+            @refresh="refreshGenerationJobs"
+            @cancel="handleCancelJob"
+            @retry="handleRetryJob"
+          />
+        </section>
+
+        <section v-show="activeWorkspaceTab === 'history'" class="workspace-view">
+          <HistoryGallery
+            :items="historyItems"
+            :busy="historyLoading"
+            :error-message="historyErrorMessage"
+            :total="historyTotal"
+            :has-more="hasMoreHistory"
+            :available-models="availableModels"
+            :model-labels="modelLabels"
+            :available-sizes="availableSizes"
+            :format-date-time="formatDateTime"
+            :copy="copy.history"
+            @filters-change="handleHistoryFilters"
+            @load-more="loadMoreHistory"
+            @toggle-favorite="handleToggleFavorite"
+            @delete-images="handleDeleteImages"
+            @bulk-download="handleBulkDownload"
+            @open-image="handleOpenImage"
+            @download-image="handleDownloadImage"
+            @reuse-prompt="handleReusePrompt"
+            @edit-from-image="handleEditFromImage"
+            @refresh="refreshHistory"
+          />
+        </section>
+
+        <section v-if="isAdmin && activeWorkspaceTab === 'admin'" class="workspace-view">
+          <div class="admin-placeholder">
+            <p class="admin-placeholder__eyebrow">管理</p>
+            <h2>管理面板</h2>
+            <p>AdminPanel 正在集成中，后续会在这里接入管理员功能。</p>
+          </div>
+        </section>
       </template>
     </main>
   </div>

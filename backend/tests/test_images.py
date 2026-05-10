@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
+from app.db.session import get_session_factory
 from app.main import app
+from app.repositories.generation_jobs import create_generation_job
+from app.repositories.users import create_user
+from app.services.auth import hash_password
 from app.services.openai_images import OpenAIImageService
 
 
@@ -233,6 +237,78 @@ def test_generation_job_quota_limits_active_jobs() -> None:
     )
 
     assert response.status_code == 429
+
+
+def test_generation_job_events_requires_short_lived_event_token() -> None:
+    client = TestClient(app)
+    token = client.post("/api/auth/login", json={"username": "admin", "password": "StrongTestAdminPass123!"}).json()["access_token"]
+    create_response = client.post(
+        "/api/images/generation-jobs",
+        json={"prompt": "Queued image", "size": "1024x1024"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    job_id = create_response.json()["id"]
+
+    unauthorized = client.get(f"/api/images/generation-jobs/{job_id}/events?token={token}")
+
+    assert unauthorized.status_code == 401
+
+
+def test_generation_job_events_streams_owned_job_status() -> None:
+    client = TestClient(app)
+    token = client.post("/api/auth/login", json={"username": "admin", "password": "StrongTestAdminPass123!"}).json()["access_token"]
+    create_response = client.post(
+        "/api/images/generation-jobs",
+        json={"prompt": "Queued image", "size": "1024x1024"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    job_id = create_response.json()["id"]
+    event_token_response = client.post(
+        f"/api/images/generation-jobs/{job_id}/events-token",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    response = client.get(f"/api/images/generation-jobs/{job_id}/events?token={event_token_response.json()['token']}")
+
+    assert event_token_response.status_code == 200
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert "event: job" in response.text
+    assert '"status":"queued"' in response.text
+
+
+def test_generation_job_events_token_is_user_scoped() -> None:
+    client = TestClient(app)
+    settings = get_settings()
+    session = get_session_factory(settings)()
+    try:
+        other_user = create_user(
+            session,
+            username="other",
+            password_hash=hash_password("StrongOtherPass123!"),
+            role="user",
+        )
+        other_job = create_generation_job(
+            session,
+            user_id=other_user.id,
+            prompt="Other user job",
+            negative_prompt=None,
+            model=settings.upstream_model,
+            size="1024x1024",
+            quality=None,
+            request_payload={"prompt": "Other user job", "size": "1024x1024"},
+        )
+        other_job_id = other_job.id
+    finally:
+        session.close()
+    token = client.post("/api/auth/login", json={"username": "admin", "password": "StrongTestAdminPass123!"}).json()["access_token"]
+
+    response = client.post(
+        f"/api/images/generation-jobs/{other_job_id}/events-token",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 404
 
 
 def service_request(**overrides):

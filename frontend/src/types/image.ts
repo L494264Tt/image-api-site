@@ -54,6 +54,18 @@ export interface ImageGenerationRequest {
   user?: string
 }
 
+export interface PromptImproveRequest {
+  prompt: string
+  negative_prompt?: string
+  model?: string
+  style?: string
+}
+
+export interface PromptImproveResponse {
+  prompt: string
+  negative_prompt?: string
+}
+
 export interface ImageGenerationDataItem {
   url?: string
   b64_json?: string
@@ -95,6 +107,8 @@ export interface ImageHistoryItem {
   image_url: string
   thumbnail_url?: string
   is_favorite: boolean
+  tags: string[]
+  project?: string
   created_at: string
 }
 
@@ -124,6 +138,11 @@ export interface GenerationJobResponse {
   completed_at?: string
 }
 
+export interface GenerationJobEventsTokenResponse {
+  token: string
+  expires_in_seconds: number
+}
+
 export interface RenderableImage {
   id: string
   src: string
@@ -144,6 +163,8 @@ export interface HistoryRenderableImage extends RenderableImage {
   endpointType?: string
   size: string
   isFavorite: boolean
+  tags: string[]
+  project?: string
   createdAt: string
 }
 

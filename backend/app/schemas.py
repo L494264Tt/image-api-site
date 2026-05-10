@@ -145,6 +145,8 @@ class ImageHistoryItem(BaseModel):
     image_url: str
     thumbnail_url: str | None = None
     is_favorite: bool = False
+    tags: list[str] = Field(default_factory=list)
+    project: str | None = None
     created_at: datetime
 
 
@@ -174,6 +176,11 @@ class GenerationJobResponse(BaseModel):
     completed_at: datetime | None = None
 
 
+class GenerationJobEventsTokenResponse(BaseModel):
+    token: str
+    expires_in_seconds: int
+
+
 class UploadResponse(BaseModel):
     id: int
     file_name: str
@@ -184,6 +191,11 @@ class UploadResponse(BaseModel):
 
 class FavoriteRequest(BaseModel):
     is_favorite: bool
+
+
+class ImageOrganizationRequest(BaseModel):
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    project: str | None = Field(default=None, max_length=120)
 
 
 class BulkDeleteRequest(BaseModel):
@@ -214,3 +226,15 @@ class PromptTemplateRequest(BaseModel):
     negative_prompt: str = ""
     variables: list[str] = Field(default_factory=list)
     is_favorite: bool = False
+
+
+class PromptImproveRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=4000)
+    negative_prompt: str | None = Field(default=None, max_length=2000)
+    model: str | None = Field(default=None, max_length=120)
+    style: SupportedStyle | None = None
+
+
+class PromptImproveResponse(BaseModel):
+    prompt: str
+    negative_prompt: str | None = None

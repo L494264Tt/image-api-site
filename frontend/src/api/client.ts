@@ -1,11 +1,14 @@
-import type { CurrentUser, LoginRequest, LoginResponse } from '../types/auth'
+import type { AdminUser, AdminUserCreateRequest, CurrentUser, LoginRequest, LoginResponse } from '../types/auth'
 import type {
   FrontendConfig,
+  GenerationJobEventsTokenResponse,
   GenerationJobResponse,
   HealthSummary,
   ImageGenerationRequest,
   ImageGenerationResponse,
   ImageHistoryResponse,
+  PromptImproveRequest,
+  PromptImproveResponse,
   PromptTemplateCopy,
   ResponseFormat,
   UploadResponse,
@@ -320,6 +323,35 @@ export const apiClient = {
     return requestJson<CurrentUser>('/auth/me', undefined, { auth: true })
   },
 
+  async fetchAdminUsers(): Promise<AdminUser[]> {
+    const payload = await requestJson<unknown>('/admin/users', undefined, { auth: true })
+    return normalizeAdminUsers(payload)
+  },
+
+  async createAdminUser(payload: AdminUserCreateRequest): Promise<AdminUser> {
+    const response = await requestJson<unknown>(
+      '/admin/users',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      { auth: true },
+    )
+    return normalizeAdminUser(response)
+  },
+
+  async updateAdminUserStatus(userId: number, isActive: boolean): Promise<AdminUser> {
+    const response = await requestJson<unknown>(
+      `/admin/users/${userId}/status`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: isActive }),
+      },
+      { auth: true },
+    )
+    return normalizeAdminUser(response)
+  },
+
   async logout(): Promise<void> {
     try {
       await requestJson('/auth/logout', { method: 'POST' }, { auth: true })
@@ -354,6 +386,18 @@ export const apiClient = {
     return requestJson<GenerationJobResponse>(`/images/generation-jobs/${jobId}`, undefined, { auth: true })
   },
 
+  async createGenerationJobEventsToken(jobId: number): Promise<GenerationJobEventsTokenResponse> {
+    return requestJson<GenerationJobEventsTokenResponse>(
+      `/images/generation-jobs/${jobId}/events-token`,
+      { method: 'POST' },
+      { auth: true },
+    )
+  },
+
+  buildGenerationJobEventsUrl(jobId: number, token: string): string {
+    return buildUrl(`/images/generation-jobs/${jobId}/events?token=${encodeURIComponent(token)}`)
+  },
+
   async fetchGenerationJobs(limit = 20): Promise<GenerationJobResponse[]> {
     return requestJson<GenerationJobResponse[]>(`/images/generation-jobs?limit=${limit}`, undefined, { auth: true })
   },
@@ -374,6 +418,17 @@ export const apiClient = {
     )
   },
 
+  async improvePrompt(payload: PromptImproveRequest): Promise<PromptImproveResponse> {
+    return requestJson<PromptImproveResponse>(
+      '/prompts/improve',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      { auth: true },
+    )
+  },
+
   async uploadReferenceImage(file: File): Promise<UploadResponse> {
     const formData = new FormData()
     formData.set('file', file)
@@ -390,7 +445,16 @@ export const apiClient = {
   async fetchHistory(
     page = 1,
     pageSize = 24,
-    filters: { search?: string; model?: string; size?: string; favorite?: boolean; createdFrom?: string; createdTo?: string } = {},
+    filters: {
+      search?: string
+      model?: string
+      size?: string
+      favorite?: boolean
+      tag?: string
+      project?: string
+      createdFrom?: string
+      createdTo?: string
+    } = {},
   ): Promise<ImageHistoryResponse> {
     const params = new URLSearchParams({
       page: String(page),
@@ -407,6 +471,12 @@ export const apiClient = {
     }
     if (typeof filters.favorite === 'boolean') {
       params.set('favorite', String(filters.favorite))
+    }
+    if (filters.tag) {
+      params.set('tag', filters.tag)
+    }
+    if (filters.project) {
+      params.set('project', filters.project)
     }
     if (filters.createdFrom) {
       params.set('created_from', new Date(filters.createdFrom).toISOString())
@@ -428,6 +498,20 @@ export const apiClient = {
       {
         method: 'PATCH',
         body: JSON.stringify({ is_favorite: isFavorite }),
+      },
+      { auth: true },
+    )
+  },
+
+  async setImageOrganization(
+    imageId: number,
+    payload: { tags: string[]; project?: string | null },
+  ): Promise<void> {
+    await requestJson(
+      `/images/${imageId}/organization`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
       },
       { auth: true },
     )
@@ -582,6 +666,37 @@ function normalizePromptTemplate(payload: unknown): PromptTemplateCopy {
   }
 }
 
+function normalizeAdminUsers(payload: unknown): AdminUser[] {
+  if (!Array.isArray(payload)) {
+    return []
+  }
+
+  return payload.map((entry) => normalizeAdminUser(entry))
+}
+
+function normalizeAdminUser(payload: unknown): AdminUser {
+  const source = asRecord(payload)
+  const id = readNumber(source?.id)
+  const username = readString(source?.username)
+  const role = readString(source?.role)
+  const createdAt = readString(source?.created_at)
+  const updatedAt = readString(source?.updated_at)
+
+  if (!id || !username || !role || !createdAt || !updatedAt) {
+    throw new ApiError('管理员用户数据格式不正确。')
+  }
+
+  return {
+    id,
+    username,
+    role,
+    is_active: Boolean(source?.is_active),
+    created_at: createdAt,
+    updated_at: updatedAt,
+    last_login_at: readString(source?.last_login_at) || null,
+  }
+}
+
 function normalizeModels(payload: unknown): string[] {
   if (Array.isArray(payload)) {
     return dedupeStrings(payload.flatMap((entry) => extractModelIds(entry)))
@@ -642,6 +757,8 @@ function normalizeHistoryItem(entry: unknown) {
       image_url: imageUrl,
       thumbnail_url: readString(source?.thumbnail_url),
       is_favorite: Boolean(source?.is_favorite),
+      tags: readStringArray(source?.tags),
+      project: readString(source?.project),
       created_at: createdAt,
     },
   ]

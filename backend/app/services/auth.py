@@ -42,3 +42,23 @@ def decode_access_token(token: str, settings: Settings) -> dict[str, str]:
         raise InvalidTokenError("Token subject missing")
 
     return payload
+
+
+def create_job_events_token(user: User, *, job_id: int, settings: Settings) -> str:
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+    payload = {
+        "sub": str(user.id),
+        "job_id": job_id,
+        "scope": "generation_job_events",
+        "exp": expires_at,
+    }
+    return jwt.encode(payload, settings.jwt_secret_key, algorithm="HS256")
+
+
+def decode_job_events_token(token: str, *, job_id: int, settings: Settings) -> dict[str, str]:
+    payload = decode_access_token(token, settings)
+    if payload.get("scope") != "generation_job_events":
+        raise InvalidTokenError("Invalid token scope")
+    if int(payload.get("job_id", 0)) != job_id:
+        raise InvalidTokenError("Token job mismatch")
+    return payload
