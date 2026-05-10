@@ -37,6 +37,12 @@ Image API Site 是一个前后端分离的图片生成站点。前端使用 Vue/
 
 ### 本地开发
 
+环境要求：
+
+- Node.js 和 npm，用于前端开发与构建。
+- Python 3.14.4 和 uv，用于后端本地开发与测试。
+- Docker 和 Docker Compose，用于容器化部署。
+
 后端：
 
 ```bash
@@ -66,14 +72,18 @@ cp .env.deploy.example .env.deploy
 docker compose --env-file .env.deploy up -d --build
 ```
 
+`.env.deploy` 中至少需要设置真实的 `UPSTREAM_BASE_URL`、`UPSTREAM_API_KEY`、`POSTGRES_PASSWORD`、`DATABASE_URL`、`JWT_SECRET_KEY`、`ADMIN_PASSWORD` 和 `CORS_ORIGINS`。占位值不能直接用于启动生产环境，后端会拒绝明显的示例密钥和弱管理员密码。
+
 默认前端容器监听 `${FRONTEND_PORT:-8088}`，并把 `/api/*` 代理到后端容器。
-后端首次启动会根据 SQLAlchemy 模型自动创建数据库表；仓库也包含 Alembic 迁移文件，位于 `backend/alembic/versions/`。
+无需手动导入 SQL 文件。Postgres 容器启动后，后端首次启动会根据 SQLAlchemy 模型自动创建数据库表，并创建初始管理员账号；仓库也包含 Alembic 迁移文件，位于 `backend/alembic/versions/`。
 
 服务器部署可使用：
 
 ```bash
 docker compose --env-file .env.deploy -f compose.server.yaml up -d --build
 ```
+
+`compose.server.yaml` 默认只把前端绑定到 `127.0.0.1`，适合放在 Caddy、Nginx 或其他反向代理后面使用。使用前需要把 `your-existing-proxy-network` 改成服务器上已有的 Docker 代理网络名；如果没有外部代理网络，请使用默认的 `compose.yaml`。
 
 ### 关键环境变量
 
@@ -144,10 +154,15 @@ docker run --rm \
 ### 上线前检查
 
 - 确认 `.env.deploy` 没有提交到 Git。
+- 不要提交 `.env`、`.env.deploy`、`storage/`、`postgres/`、`frontend/dist/` 或本地数据库文件。
 - 确认所有示例密钥和默认密码已经替换。
 - 确认 `CORS_ORIGINS` 只包含真实前端域名。
 - 确认外层网关已经配置 HTTPS。
 - 确认 `storage/` 和 Postgres 数据目录有备份策略。
+
+### 许可证
+
+当前仓库尚未声明开源许可证。公开使用、复制、修改或分发前，请先补充明确的 `LICENSE` 文件。
 
 ## English
 
@@ -184,6 +199,12 @@ The backend also includes these protections:
 
 ### Local Development
 
+Requirements:
+
+- Node.js and npm for frontend development and builds.
+- Python 3.14.4 and uv for backend local development and tests.
+- Docker and Docker Compose for containerized deployment.
+
 Backend:
 
 ```bash
@@ -213,14 +234,18 @@ cp .env.deploy.example .env.deploy
 docker compose --env-file .env.deploy up -d --build
 ```
 
+At minimum, `.env.deploy` must contain real values for `UPSTREAM_BASE_URL`, `UPSTREAM_API_KEY`, `POSTGRES_PASSWORD`, `DATABASE_URL`, `JWT_SECRET_KEY`, `ADMIN_PASSWORD`, and `CORS_ORIGINS`. Placeholder values cannot be used for production startup. The backend rejects obvious example secrets and weak admin passwords.
+
 The frontend container listens on `${FRONTEND_PORT:-8088}` by default and proxies `/api/*` to the backend container.
-On first startup, the backend creates database tables from the SQLAlchemy models automatically. Alembic migration files are also included under `backend/alembic/versions/`.
+No manual SQL import is required. After the Postgres container starts, the backend creates database tables from the SQLAlchemy models automatically on first startup and bootstraps the initial admin account. Alembic migration files are also included under `backend/alembic/versions/`.
 
 For the server deployment profile:
 
 ```bash
 docker compose --env-file .env.deploy -f compose.server.yaml up -d --build
 ```
+
+`compose.server.yaml` binds the frontend to `127.0.0.1` by default and is intended to run behind Caddy, Nginx, or another reverse proxy. Before using it, replace `your-existing-proxy-network` with an existing Docker proxy network on your server. If you do not have an external proxy network, use the default `compose.yaml`.
 
 ### Key Environment Variables
 
@@ -291,7 +316,12 @@ docker run --rm \
 ### Production Checklist
 
 - Confirm `.env.deploy` is not committed.
+- Do not commit `.env`, `.env.deploy`, `storage/`, `postgres/`, `frontend/dist/`, or local database files.
 - Confirm all example secrets and default passwords have been replaced.
 - Confirm `CORS_ORIGINS` only contains real frontend domains.
 - Confirm HTTPS is configured at the outer gateway.
 - Confirm backup coverage for `storage/` and Postgres data directories.
+
+### License
+
+No open-source license is declared yet. Add an explicit `LICENSE` file before public use, copying, modification, or redistribution.
