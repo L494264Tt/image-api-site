@@ -107,6 +107,8 @@ export interface ImageHistoryItem {
   image_url: string
   thumbnail_url?: string
   is_favorite: boolean
+  tags: string[]
+  project?: string
   created_at: string
 }
 
@@ -156,6 +158,8 @@ export interface HistoryRenderableImage extends RenderableImage {
   endpointType?: string
   size: string
   isFavorite: boolean
+  tags: string[]
+  project?: string
   createdAt: string
 }
 

@@ -57,7 +57,7 @@ const generatedAt = ref<string | null>(null)
 const activeJob = ref<GenerationJobResponse | null>(null)
 const generationJobs = ref<GenerationJobResponse[]>([])
 const promptTemplates = ref<PromptTemplateCopy[]>([])
-const historyFilters = ref({ search: '', model: '', size: '', favorite: false, createdFrom: '', createdTo: '' })
+const historyFilters = ref({ search: '', model: '', size: '', favorite: false, tag: '', project: '', createdFrom: '', createdTo: '' })
 const generationFormRef = ref<InstanceType<typeof ImageGenerationForm> | null>(null)
 let jobPollTimer: number | null = null
 const { persistActiveJob, getPersistedActiveJob, clearPersistedActiveJob } = useActiveJobStorage()
@@ -288,6 +288,8 @@ async function refreshHistory(): Promise<void> {
       model: historyFilters.value.model || undefined,
       size: historyFilters.value.size || undefined,
       favorite: historyFilters.value.favorite || undefined,
+      tag: historyFilters.value.tag || undefined,
+      project: historyFilters.value.project || undefined,
       createdFrom: historyFilters.value.createdFrom || undefined,
       createdTo: historyFilters.value.createdTo || undefined,
     })
@@ -319,6 +321,8 @@ async function loadMoreHistory(): Promise<void> {
       model: historyFilters.value.model || undefined,
       size: historyFilters.value.size || undefined,
       favorite: historyFilters.value.favorite || undefined,
+      tag: historyFilters.value.tag || undefined,
+      project: historyFilters.value.project || undefined,
       createdFrom: historyFilters.value.createdFrom || undefined,
       createdTo: historyFilters.value.createdTo || undefined,
     })
@@ -469,6 +473,8 @@ async function hydrateHistoryItems(items: ImageHistoryItem[]): Promise<HistoryRe
         endpointType: item.endpoint_type,
         size: item.size,
         isFavorite: item.is_favorite,
+        tags: item.tags,
+        project: item.project,
         createdAt: item.created_at,
       }
     }),
@@ -560,7 +566,7 @@ function handleLocaleChange(nextLocale: Locale): void {
   locale.value = nextLocale
 }
 
-async function handleHistoryFilters(nextFilters: { search: string; model: string; size: string; favorite: boolean; createdFrom: string; createdTo: string }): Promise<void> {
+async function handleHistoryFilters(nextFilters: { search: string; model: string; size: string; favorite: boolean; tag: string; project: string; createdFrom: string; createdTo: string }): Promise<void> {
   historyFilters.value = nextFilters
   await refreshHistory()
 }
