@@ -145,6 +145,8 @@ class ImageHistoryItem(BaseModel):
     image_url: str
     thumbnail_url: str | None = None
     is_favorite: bool = False
+    tags: list[str] = Field(default_factory=list)
+    project: str | None = None
     created_at: datetime
 
 
@@ -184,6 +186,11 @@ class UploadResponse(BaseModel):
 
 class FavoriteRequest(BaseModel):
     is_favorite: bool
+
+
+class ImageOrganizationRequest(BaseModel):
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    project: str | None = Field(default=None, max_length=120)
 
 
 class BulkDeleteRequest(BaseModel):

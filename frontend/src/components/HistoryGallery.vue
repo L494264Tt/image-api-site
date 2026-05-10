@@ -18,7 +18,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   refresh: []
   loadMore: []
-  filtersChange: [filters: { search: string; model: string; size: string; favorite: boolean; createdFrom: string; createdTo: string }]
+  filtersChange: [filters: { search: string; model: string; size: string; favorite: boolean; tag: string; project: string; createdFrom: string; createdTo: string }]
   toggleFavorite: [item: HistoryRenderableImage]
   deleteImages: [ids: number[]]
   bulkDownload: [ids: number[]]
@@ -33,6 +33,8 @@ const filters = reactive({
   model: '',
   size: '',
   favorite: false,
+  tag: '',
+  project: '',
   createdFrom: '',
   createdTo: '',
 })
@@ -120,6 +122,8 @@ function modelLabel(model: string): string {
         <input v-model="filters.favorite" type="checkbox" />
         只看收藏
       </label>
+      <input v-model="filters.tag" type="search" placeholder="标签" />
+      <input v-model="filters.project" type="search" placeholder="项目" />
       <input v-model="filters.createdFrom" type="date" title="开始时间" />
       <input v-model="filters.createdTo" type="date" title="结束时间" />
     </form>
@@ -158,6 +162,10 @@ function modelLabel(model: string): string {
             <span>{{ copy.model }}: {{ modelLabel(item.model) }}</span>
             <span>{{ copy.size }}: {{ item.size }}</span>
             <span>{{ copy.createdAt }}: {{ formatDateTime(item.createdAt) }}</span>
+            <span v-if="item.project">项目: {{ item.project }}</span>
+          </div>
+          <div v-if="item.tags.length" class="history-card__tags">
+            <span v-for="tag in item.tags" :key="tag">#{{ tag }}</span>
           </div>
 
           <p v-if="item.revisedPrompt" class="history-card__revised">
@@ -189,8 +197,10 @@ function modelLabel(model: string): string {
           <dl>
             <div><dt>{{ copy.model }}</dt><dd>{{ modelLabel(previewItem.model) }}</dd></div>
             <div><dt>{{ copy.size }}</dt><dd>{{ previewItem.size }}</dd></div>
+            <div v-if="previewItem.project"><dt>项目</dt><dd>{{ previewItem.project }}</dd></div>
             <div><dt>{{ copy.createdAt }}</dt><dd>{{ formatDateTime(previewItem.createdAt) }}</dd></div>
           </dl>
+          <p v-if="previewItem.tags.length">标签: {{ previewItem.tags.map((tag) => `#${tag}`).join(' ') }}</p>
           <p v-if="previewItem.revisedPrompt">{{ copy.revisedPrompt }}: {{ previewItem.revisedPrompt }}</p>
           <div class="image-modal__actions">
             <button class="button button--ghost" type="button" @click="emit('reusePrompt', previewItem)">复用提示词</button>
@@ -407,6 +417,21 @@ h2 {
   gap: 0.2rem;
   color: var(--ink-muted);
   font-size: 0.78rem;
+}
+
+.history-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.history-card__tags span {
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(18, 50, 43, 0.07);
+  color: var(--accent-strong);
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
 .history-card__actions {
