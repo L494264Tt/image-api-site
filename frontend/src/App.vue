@@ -60,6 +60,7 @@ const promptTemplates = ref<PromptTemplateCopy[]>([])
 const historyFilters = ref({ search: '', model: '', size: '', favorite: false, tag: '', project: '', createdFrom: '', createdTo: '' })
 const generationFormRef = ref<InstanceType<typeof ImageGenerationForm> | null>(null)
 let jobPollTimer: number | null = null
+let jobEventSource: EventSource | null = null
 const { persistActiveJob, getPersistedActiveJob, clearPersistedActiveJob } = useActiveJobStorage()
 
 const availableModels = computed(() => config.value.modelOptions)
@@ -402,29 +403,76 @@ async function restoreActiveJob(): Promise<void> {
 function startJobPolling(jobId: number): void {
   stopJobPolling()
   submitting.value = true
-  jobPollTimer = window.setInterval(() => {
-    void pollGenerationJob(jobId)
-  }, 2500)
-  void pollGenerationJob(jobId)
+  void startJobEvents(jobId)
 }
 
 function stopJobPolling(): void {
+  stopJobEvents()
   if (jobPollTimer !== null) {
     window.clearInterval(jobPollTimer)
     jobPollTimer = null
   }
 }
 
+function stopJobEvents(): void {
+  if (jobEventSource) {
+    jobEventSource.close()
+    jobEventSource = null
+  }
+}
+
+function startPollingFallback(jobId: number): void {
+  if (jobPollTimer !== null) {
+    return
+  }
+  jobPollTimer = window.setInterval(() => {
+    void pollGenerationJob(jobId)
+  }, 2500)
+  void pollGenerationJob(jobId)
+}
+
+async function startJobEvents(jobId: number): Promise<void> {
+  try {
+    const { token } = await apiClient.createGenerationJobEventsToken(jobId)
+    const source = new EventSource(apiClient.buildGenerationJobEventsUrl(jobId, token))
+    jobEventSource = source
+
+    source.addEventListener('job', (event) => {
+      handleJobUpdate(JSON.parse(event.data) as GenerationJobResponse)
+    })
+    source.addEventListener('done', (event) => {
+      source.close()
+      if (jobEventSource === source) {
+        jobEventSource = null
+      }
+      void handleJobUpdate(JSON.parse(event.data) as GenerationJobResponse)
+    })
+    source.onerror = () => {
+      if (jobEventSource === source) {
+        jobEventSource = null
+      }
+      source.close()
+      startPollingFallback(jobId)
+    }
+  } catch {
+    startPollingFallback(jobId)
+  }
+}
+
+function handleJobUpdate(job: GenerationJobResponse): void {
+  activeJob.value = job
+  upsertGenerationJob(job)
+  statusMessage.value = job.progress_message
+  if (job.status === 'succeeded' || job.status === 'failed' || job.status === 'canceled') {
+    stopJobPolling()
+    void applyCompletedJob(job)
+  }
+}
+
 async function pollGenerationJob(jobId: number): Promise<void> {
   try {
     const job = await apiClient.fetchGenerationJob(jobId)
-    activeJob.value = job
-    upsertGenerationJob(job)
-    statusMessage.value = job.progress_message
-    if (job.status === 'succeeded' || job.status === 'failed') {
-      stopJobPolling()
-      await applyCompletedJob(job)
-    }
+    handleJobUpdate(job)
   } catch (error) {
     stopJobPolling()
     submitting.value = false
@@ -435,7 +483,7 @@ async function pollGenerationJob(jobId: number): Promise<void> {
 async function applyCompletedJob(job: GenerationJobResponse): Promise<void> {
   submitting.value = false
   clearPersistedActiveJob()
-  if (job.status === 'failed') {
+  if (job.status === 'failed' || job.status === 'canceled') {
     errorMessage.value = job.error_message || copy.value.app.generationError
     statusMessage.value = copy.value.app.generationError
     return

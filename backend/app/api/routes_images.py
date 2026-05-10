@@ -1,14 +1,17 @@
+import asyncio
+import json
 from datetime import datetime, timezone
 
 import zipfile
 from io import BytesIO
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.config import Settings, get_settings
+from app.db.session import get_session_factory
 from app.errors import UpstreamAPIError
 from app.model_capabilities import image_to_image_fallback_model
 from app.models.user import User
@@ -27,6 +30,7 @@ from app.services.error_mapper import friendly_upstream_error
 from app.schemas import (
     BulkDeleteRequest,
     BulkDeleteResponse,
+    GenerationJobEventsTokenResponse,
     FavoriteRequest,
     GenerationJobResponse,
     ImageGenerationRequest,
@@ -38,8 +42,11 @@ from app.schemas import (
 from app.services.image_storage import delete_image_file, ensure_thumbnail, resolve_storage_path, save_base64_image, thumbnail_path_for
 from app.services.generation_runner import hydrate_request_uploads
 from app.services.openai_images import OpenAIImageService
+from app.services.auth import InvalidTokenError, create_job_events_token, decode_job_events_token
 
 router = APIRouter(prefix="/api/images", tags=["images"])
+
+TERMINAL_JOB_STATUSES = {"succeeded", "failed", "canceled"}
 
 
 def get_image_service(settings: Settings = Depends(get_settings)) -> OpenAIImageService:
@@ -91,6 +98,10 @@ def job_response_from_record(session: Session, job) -> GenerationJobResponse:
     )
 
 
+def format_sse_event(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
+
+
 def reject_inline_reference_images(request: ImageGenerationRequest) -> None:
     if any(reference_image.data_url for reference_image in request.reference_images):
         raise HTTPException(status_code=400, detail="参考图必须先上传，并通过 upload_id 引用。")
@@ -135,6 +146,67 @@ def generation_job_detail(
     if job is None:
         raise HTTPException(status_code=404, detail="Generation job not found")
     return job_response_from_record(session, job)
+
+
+@router.post("/generation-jobs/{job_id}/events-token", response_model=GenerationJobEventsTokenResponse)
+def create_generation_job_events_token(
+    job_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> GenerationJobEventsTokenResponse:
+    job = get_generation_job_for_user(session, job_id=job_id, user_id=user.id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Generation job not found")
+    return GenerationJobEventsTokenResponse(
+        token=create_job_events_token(user, job_id=job_id, settings=settings),
+        expires_in_seconds=300,
+    )
+
+
+@router.get("/generation-jobs/{job_id}/events")
+async def generation_job_events(
+    job_id: int,
+    token: str = Query(min_length=1),
+    settings: Settings = Depends(get_settings),
+) -> StreamingResponse:
+    try:
+        payload = decode_job_events_token(token, job_id=job_id, settings=settings)
+        user_id = int(payload["sub"])
+    except (InvalidTokenError, ValueError, KeyError) as exc:
+        raise HTTPException(status_code=401, detail="Invalid event token") from exc
+
+    session_factory = get_session_factory(settings)
+    with session_factory() as session:
+        if get_generation_job_for_user(session, job_id=job_id, user_id=user_id) is None:
+            raise HTTPException(status_code=404, detail="Generation job not found")
+
+    async def event_stream():
+        last_payload: dict | None = None
+        while True:
+            with session_factory() as session:
+                job = get_generation_job_for_user(session, job_id=job_id, user_id=user_id)
+                if job is None:
+                    yield format_sse_event("error", {"message": "Generation job not found"})
+                    return
+                payload = job_response_from_record(session, job).model_dump(mode="json")
+
+            if payload != last_payload:
+                event = "done" if payload["status"] in TERMINAL_JOB_STATUSES else "job"
+                yield format_sse_event(event, payload)
+                last_payload = payload
+            if payload["status"] in TERMINAL_JOB_STATUSES:
+                return
+            await asyncio.sleep(2)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/generation-jobs", response_model=list[GenerationJobResponse])
