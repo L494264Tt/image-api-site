@@ -214,3 +214,15 @@ class PromptTemplateRequest(BaseModel):
     negative_prompt: str = ""
     variables: list[str] = Field(default_factory=list)
     is_favorite: bool = False
+
+
+class PromptImproveRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=4000)
+    negative_prompt: str | None = Field(default=None, max_length=2000)
+    model: str | None = Field(default=None, max_length=120)
+    style: SupportedStyle | None = None
+
+
+class PromptImproveResponse(BaseModel):
+    prompt: str
+    negative_prompt: str | None = None
