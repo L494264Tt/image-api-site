@@ -1,4 +1,3 @@
-import os
 from collections.abc import Generator
 from pathlib import Path
 
@@ -17,10 +16,6 @@ _session_factory: sessionmaker[Session] | None = None
 
 def _is_sqlite(settings: Settings) -> bool:
     return settings.database_url.startswith("sqlite")
-
-
-def _run_migrations_on_startup() -> bool:
-    return os.getenv("RUN_DATABASE_MIGRATIONS_ON_STARTUP", "").lower() in {"1", "true", "yes", "on"}
 
 
 def get_engine(settings: Settings | None = None) -> Engine:
@@ -59,7 +54,7 @@ def init_db(settings: Settings | None = None) -> None:
     from app import models  # noqa: F401
 
     current_settings = settings or get_settings()
-    if _run_migrations_on_startup():
+    if current_settings.run_database_migrations_on_startup:
         run_migrations(current_settings)
         return
 

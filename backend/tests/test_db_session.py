@@ -44,10 +44,11 @@ def test_init_db_does_not_create_non_sqlite_schema(monkeypatch) -> None:
 
 
 def test_init_db_runs_migrations_when_enabled(monkeypatch) -> None:
-    settings = _settings("postgresql+psycopg://user:pass@localhost:5432/app")
+    settings = _settings("postgresql+psycopg://user:pass@localhost:5432/app").model_copy(
+        update={"run_database_migrations_on_startup": True}
+    )
     migrated = []
 
-    monkeypatch.setenv("RUN_DATABASE_MIGRATIONS_ON_STARTUP", "true")
     monkeypatch.setattr("app.db.session.run_migrations", lambda received_settings: migrated.append(received_settings))
 
     init_db(settings)

@@ -60,7 +60,7 @@ class CurrentUserResponse(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1)
-    new_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=12, max_length=128)
 
 
 class UserResponse(BaseModel):
@@ -75,7 +75,7 @@ class UserResponse(BaseModel):
 
 class UserCreateRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=12, max_length=128)
     role: str = Field(default="user", min_length=1, max_length=32)
     is_active: bool = True
 

@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     cors_origins: str = Field(default="http://localhost:5173", alias="CORS_ORIGINS")
     app_env: str = Field(default="production", alias="APP_ENV")
     enable_api_docs: bool = Field(default=False, alias="ENABLE_API_DOCS")
+    run_database_migrations_on_startup: bool = Field(default=False, alias="RUN_DATABASE_MIGRATIONS_ON_STARTUP")
     login_rate_limit_attempts: int = Field(default=5, alias="LOGIN_RATE_LIMIT_ATTEMPTS")
     login_rate_limit_window_seconds: int = Field(default=60, alias="LOGIN_RATE_LIMIT_WINDOW_SECONDS")
     max_active_generation_jobs_per_user: int = Field(default=3, alias="MAX_ACTIVE_GENERATION_JOBS_PER_USER")
