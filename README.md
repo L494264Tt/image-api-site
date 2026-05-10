@@ -89,7 +89,13 @@ docker compose --env-file .env.deploy run --rm backend python -m app.check_confi
 docker compose --env-file .env.deploy -f compose.server.yaml up -d --build
 ```
 
-`compose.server.yaml` 默认只把前端绑定到 `127.0.0.1`，适合放在 Caddy、Nginx 或其他反向代理后面使用。使用前需要把 `your-existing-proxy-network` 改成服务器上已有的 Docker 代理网络名；如果没有外部代理网络，请使用默认的 `compose.yaml`。
+`compose.server.yaml` 默认只把前端绑定到 `127.0.0.1`，适合放在 Caddy、Nginx 或其他反向代理后面使用。使用前需要把 `.env.deploy` 中的 `CADDY_PROXY_NETWORK` 设置为服务器上已有的 Docker 代理网络名；如果没有外部代理网络，请使用默认的 `compose.yaml`。
+
+如果数据库由已有的外部 Postgres 容器提供，且 `DATABASE_URL` 指向该外部服务，请使用：
+
+```bash
+docker compose --env-file .env.deploy -f compose.external-db.yaml up -d --build
+```
 
 ### 关键环境变量
 
@@ -261,7 +267,13 @@ For the server deployment profile:
 docker compose --env-file .env.deploy -f compose.server.yaml up -d --build
 ```
 
-`compose.server.yaml` binds the frontend to `127.0.0.1` by default and is intended to run behind Caddy, Nginx, or another reverse proxy. Before using it, replace `your-existing-proxy-network` with an existing Docker proxy network on your server. If you do not have an external proxy network, use the default `compose.yaml`.
+`compose.server.yaml` binds the frontend to `127.0.0.1` by default and is intended to run behind Caddy, Nginx, or another reverse proxy. Before using it, set `CADDY_PROXY_NETWORK` in `.env.deploy` to an existing Docker proxy network on your server. If you do not have an external proxy network, use the default `compose.yaml`.
+
+If the database is provided by an existing external Postgres container and `DATABASE_URL` points to that external service, use:
+
+```bash
+docker compose --env-file .env.deploy -f compose.external-db.yaml up -d --build
+```
 
 ### Key Environment Variables
 

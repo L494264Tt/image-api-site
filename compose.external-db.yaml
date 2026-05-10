@@ -1,0 +1,54 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./.env.deploy
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+    expose:
+      - "8000"
+    networks:
+      default:
+      caddy_proxy:
+    volumes:
+      - ./storage:/app/storage
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./.env.deploy
+    environment:
+      WORKER_ID: image-worker
+    command: ["python", "-m", "app.workers.generation_worker"]
+    networks:
+      default:
+      caddy_proxy:
+    volumes:
+      - ./storage:/app/storage
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-18088}:80"
+    networks:
+      default:
+      caddy_proxy:
+        aliases:
+          - image-api-site
+
+networks:
+  caddy_proxy:
+    external: true
+    name: ${CADDY_PROXY_NETWORK:?CADDY_PROXY_NETWORK is required}

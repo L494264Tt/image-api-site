@@ -84,4 +84,4 @@ services:
 networks:
   caddy_proxy:
     external: true
-    name: your-existing-proxy-network
+    name: ${CADDY_PROXY_NETWORK:?CADDY_PROXY_NETWORK is required}
