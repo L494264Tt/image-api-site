@@ -432,7 +432,16 @@ export const apiClient = {
   async fetchHistory(
     page = 1,
     pageSize = 24,
-    filters: { search?: string; model?: string; size?: string; favorite?: boolean; createdFrom?: string; createdTo?: string } = {},
+    filters: {
+      search?: string
+      model?: string
+      size?: string
+      favorite?: boolean
+      tag?: string
+      project?: string
+      createdFrom?: string
+      createdTo?: string
+    } = {},
   ): Promise<ImageHistoryResponse> {
     const params = new URLSearchParams({
       page: String(page),
@@ -449,6 +458,12 @@ export const apiClient = {
     }
     if (typeof filters.favorite === 'boolean') {
       params.set('favorite', String(filters.favorite))
+    }
+    if (filters.tag) {
+      params.set('tag', filters.tag)
+    }
+    if (filters.project) {
+      params.set('project', filters.project)
     }
     if (filters.createdFrom) {
       params.set('created_from', new Date(filters.createdFrom).toISOString())
@@ -470,6 +485,20 @@ export const apiClient = {
       {
         method: 'PATCH',
         body: JSON.stringify({ is_favorite: isFavorite }),
+      },
+      { auth: true },
+    )
+  },
+
+  async setImageOrganization(
+    imageId: number,
+    payload: { tags: string[]; project?: string | null },
+  ): Promise<void> {
+    await requestJson(
+      `/images/${imageId}/organization`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
       },
       { auth: true },
     )
@@ -715,6 +744,8 @@ function normalizeHistoryItem(entry: unknown) {
       image_url: imageUrl,
       thumbnail_url: readString(source?.thumbnail_url),
       is_favorite: Boolean(source?.is_favorite),
+      tags: readStringArray(source?.tags),
+      project: readString(source?.project),
       created_at: createdAt,
     },
   ]

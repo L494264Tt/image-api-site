@@ -5,6 +5,40 @@ from sqlalchemy.orm import Session
 
 from app.models.image_generation import ImageGeneration
 
+TAG_SEPARATOR = "\n"
+
+
+def normalize_tags(tags: list[str]) -> list[str]:
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for tag in tags:
+        value = " ".join(tag.strip().split())
+        key = value.casefold()
+        if value and key not in seen:
+            seen.add(key)
+            normalized.append(value[:64])
+    return normalized
+
+
+def encode_tags(tags: list[str]) -> str:
+    normalized = normalize_tags(tags)
+    if not normalized:
+        return ""
+    return f"{TAG_SEPARATOR}{TAG_SEPARATOR.join(normalized)}{TAG_SEPARATOR}"
+
+
+def decode_tags(tags: str | None) -> list[str]:
+    if not tags:
+        return []
+    return [tag.strip() for tag in tags.split(TAG_SEPARATOR) if tag.strip()]
+
+
+def normalize_project(project: str | None) -> str | None:
+    if project is None:
+        return None
+    value = " ".join(project.strip().split())
+    return value[:120] if value else None
+
 
 def create_image_generation(
     session: Session,
@@ -56,6 +90,8 @@ def list_images_for_user(
     model: str | None = None,
     size: str | None = None,
     favorite: bool | None = None,
+    tag: str | None = None,
+    project: str | None = None,
     created_from: datetime | None = None,
     created_to: datetime | None = None,
 ) -> tuple[list[ImageGeneration], int]:
@@ -72,6 +108,14 @@ def list_images_for_user(
         filters.append(ImageGeneration.size == size)
     if favorite is not None:
         filters.append(ImageGeneration.is_favorite.is_(favorite))
+    if tag:
+        normalized_tag = normalize_tags([tag])
+        if normalized_tag:
+            filters.append(ImageGeneration.tags.ilike(f"%{TAG_SEPARATOR}{normalized_tag[0]}{TAG_SEPARATOR}%"))
+    if project:
+        normalized_project = normalize_project(project)
+        if normalized_project:
+            filters.append(ImageGeneration.project == normalized_project)
     if created_from is not None:
         filters.append(ImageGeneration.created_at >= created_from)
     if created_to is not None:
@@ -106,6 +150,24 @@ def set_image_favorite(session: Session, *, image_id: int, user_id: int, is_favo
     if image is None:
         return None
     image.is_favorite = is_favorite
+    session.commit()
+    session.refresh(image)
+    return image
+
+
+def set_image_organization(
+    session: Session,
+    *,
+    image_id: int,
+    user_id: int,
+    tags: list[str],
+    project: str | None,
+) -> ImageGeneration | None:
+    image = get_image_for_user(session, image_id=image_id, user_id=user_id)
+    if image is None:
+        return None
+    image.tags = encode_tags(tags)
+    image.project = normalize_project(project)
     session.commit()
     session.refresh(image)
     return image

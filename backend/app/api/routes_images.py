@@ -16,9 +16,11 @@ from app.repositories.generation_jobs import count_active_generation_jobs_for_us
 from app.repositories.generation_jobs import cancel_generation_job, list_generation_jobs_for_user, retry_generation_job
 from app.repositories.image_generations import (
     create_image_generation,
+    decode_tags,
     get_image_for_user,
     list_images_for_user,
     set_image_favorite,
+    set_image_organization,
     soft_delete_images_for_user,
 )
 from app.services.error_mapper import friendly_upstream_error
@@ -31,6 +33,7 @@ from app.schemas import (
     ImageGenerationResponse,
     ImageHistoryItem,
     ImageHistoryResponse,
+    ImageOrganizationRequest,
 )
 from app.services.image_storage import delete_image_file, ensure_thumbnail, resolve_storage_path, save_base64_image, thumbnail_path_for
 from app.services.generation_runner import hydrate_request_uploads
@@ -56,6 +59,8 @@ def history_item_from_record(item) -> ImageHistoryItem:
         image_url=f"/api/images/{item.id}/file",
         thumbnail_url=f"/api/images/{item.id}/thumbnail",
         is_favorite=item.is_favorite,
+        tags=decode_tags(item.tags),
+        project=item.project,
         created_at=item.created_at,
     )
 
@@ -248,6 +253,8 @@ def history(
     model: str | None = Query(default=None),
     size: str | None = Query(default=None),
     favorite: bool | None = Query(default=None),
+    tag: str | None = Query(default=None),
+    project: str | None = Query(default=None),
     created_from: datetime | None = Query(default=None),
     created_to: datetime | None = Query(default=None),
     user: User = Depends(get_current_user),
@@ -262,6 +269,8 @@ def history(
         model=model,
         size=size,
         favorite=favorite,
+        tag=tag,
+        project=project,
         created_from=created_from,
         created_to=created_to,
     )
@@ -319,6 +328,25 @@ def image_detail(
     session: Session = Depends(get_db),
 ) -> ImageHistoryItem:
     item = get_image_for_user(session, image_id=image_id, user_id=user.id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Image not found")
+    return history_item_from_record(item)
+
+
+@router.patch("/{image_id}/organization", response_model=ImageHistoryItem)
+def organize_image(
+    image_id: int,
+    request: ImageOrganizationRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> ImageHistoryItem:
+    item = set_image_organization(
+        session,
+        image_id=image_id,
+        user_id=user.id,
+        tags=request.tags,
+        project=request.project,
+    )
     if item is None:
         raise HTTPException(status_code=404, detail="Image not found")
     return history_item_from_record(item)

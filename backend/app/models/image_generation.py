@@ -26,5 +26,7 @@ class ImageGeneration(Base):
     file_size_bytes: Mapped[int] = mapped_column(BigInteger)
     status: Mapped[str] = mapped_column(String(32), default="succeeded")
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False)
+    tags: Mapped[str] = mapped_column(Text, default="")
+    project: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
