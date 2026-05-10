@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
 from app.config import Settings, get_settings
-from app.repositories.users import get_user_by_username, update_last_login
+from app.repositories.users import get_user_by_username, update_last_login, update_user_password
 from app.security import login_rate_limit_key, login_rate_limiter
-from app.schemas import CurrentUserResponse, LoginRequest, LoginResponse
-from app.services.auth import create_access_token, verify_password
+from app.schemas import ChangePasswordRequest, CurrentUserResponse, LoginRequest, LoginResponse
+from app.services.auth import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -40,6 +40,19 @@ def login(
 @router.get("/me", response_model=CurrentUserResponse)
 def me(user=Depends(get_current_user)) -> CurrentUserResponse:
     return CurrentUserResponse(id=user.id, username=user.username, role=user.role)
+
+
+@router.post("/change-password")
+def change_password(
+    request: ChangePasswordRequest,
+    user=Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> dict[str, bool]:
+    if not verify_password(request.current_password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="当前密码错误")
+
+    update_user_password(session, user, hash_password(request.new_password))
+    return {"success": True}
 
 
 @router.post("/logout")

@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Write CI deploy env
+        run: |
+          cat > .env.deploy <<'EOF'
+          APP_NAME=Image API Site Backend CI
+          APP_ENV=test
+          ENABLE_API_DOCS=false
+          APP_HOST=0.0.0.0
+          APP_PORT=8000
+          UPSTREAM_BASE_URL=https://example.com
+          UPSTREAM_API_KEY=sk-test
+          UPSTREAM_IMAGE_PATH=/v1/responses
+          UPSTREAM_MODEL=gpt-image-2
+          UPSTREAM_IMAGE_MODELS=gpt-image-2
+          UPSTREAM_RESPONSES_MODEL=gpt-5.4
+          UPSTREAM_TIMEOUT_SECONDS=240
+          POSTGRES_PASSWORD=StrongCiPostgresPass123!
+          DATABASE_URL=postgresql+psycopg://postgres:StrongCiPostgresPass123!@postgres:5432/image_api_site
+          JWT_SECRET_KEY=test-secret-with-at-least-32-characters
+          JWT_EXPIRE_MINUTES=10080
+          IMAGE_STORAGE_DIR=/app/storage/images
+          ADMIN_USERNAME=admin
+          ADMIN_PASSWORD=StrongTestAdminPass123!
+          CORS_ORIGINS=http://localhost:5173
+          FRONTEND_PORT=8088
+          LOGIN_RATE_LIMIT_ATTEMPTS=5
+          LOGIN_RATE_LIMIT_WINDOW_SECONDS=60
+          MAX_ACTIVE_GENERATION_JOBS_PER_USER=3
+          MAX_BULK_DOWNLOAD_IMAGES=50
+          MAX_BULK_DOWNLOAD_BYTES=209715200
+          EOF
+
+      - name: Build backend image with Docker Compose
+        run: docker compose --env-file .env.deploy build backend
+
+      - name: Run backend tests in Docker Python 3.14 image
+        run: |
+          docker run --rm \
+            -v "$PWD/backend:/src" \
+            -w /src \
+            -e APP_NAME="Image API Site Backend Test" \
+            -e APP_ENV=test \
+            -e APP_HOST=127.0.0.1 \
+            -e APP_PORT=8000 \
+            -e UPSTREAM_BASE_URL=https://example.com \
+            -e UPSTREAM_API_KEY=sk-test \
+            -e UPSTREAM_IMAGE_PATH=/v1/responses \
+            -e UPSTREAM_MODEL=gpt-image-2 \
+            -e UPSTREAM_IMAGE_MODELS=gpt-image-2 \
+            -e UPSTREAM_RESPONSES_MODEL=gpt-5.4 \
+            -e UPSTREAM_TIMEOUT_SECONDS=240 \
+            -e DATABASE_URL=sqlite+pysqlite:///./test_image_api_site.db \
+            -e JWT_SECRET_KEY=test-secret-with-at-least-32-characters \
+            -e JWT_EXPIRE_MINUTES=10080 \
+            -e IMAGE_STORAGE_DIR=./test_storage/images \
+            -e ADMIN_USERNAME=admin \
+            -e ADMIN_PASSWORD=StrongTestAdminPass123! \
+            -e CORS_ORIGINS=http://localhost:5173 \
+            image-api-site-backend:latest \
+            sh -c 'pip install -e . pytest >/tmp/test-install.log && pytest'
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build

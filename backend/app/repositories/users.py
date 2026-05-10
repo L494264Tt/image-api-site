@@ -14,6 +14,10 @@ def get_user_by_id(session: Session, user_id: int) -> User | None:
     return session.get(User, user_id)
 
 
+def list_users(session: Session) -> list[User]:
+    return list(session.scalars(select(User).order_by(User.id.asc())))
+
+
 def create_user(
     session: Session,
     *,
@@ -28,6 +32,22 @@ def create_user(
         role=role,
         is_active=is_active,
     )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def update_user_password(session: Session, user: User, password_hash: str) -> User:
+    user.password_hash = password_hash
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def update_user_active_status(session: Session, user: User, is_active: bool) -> User:
+    user.is_active = is_active
     session.add(user)
     session.commit()
     session.refresh(user)
