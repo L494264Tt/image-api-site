@@ -124,6 +124,11 @@ export interface GenerationJobResponse {
   completed_at?: string
 }
 
+export interface GenerationJobEventsTokenResponse {
+  token: string
+  expires_in_seconds: number
+}
+
 export interface RenderableImage {
   id: string
   src: string

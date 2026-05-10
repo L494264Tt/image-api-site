@@ -174,6 +174,11 @@ class GenerationJobResponse(BaseModel):
     completed_at: datetime | None = None
 
 
+class GenerationJobEventsTokenResponse(BaseModel):
+    token: str
+    expires_in_seconds: int
+
+
 class UploadResponse(BaseModel):
     id: int
     file_name: str

@@ -1,6 +1,7 @@
 import type { CurrentUser, LoginRequest, LoginResponse } from '../types/auth'
 import type {
   FrontendConfig,
+  GenerationJobEventsTokenResponse,
   GenerationJobResponse,
   HealthSummary,
   ImageGenerationRequest,
@@ -352,6 +353,18 @@ export const apiClient = {
 
   async fetchGenerationJob(jobId: number): Promise<GenerationJobResponse> {
     return requestJson<GenerationJobResponse>(`/images/generation-jobs/${jobId}`, undefined, { auth: true })
+  },
+
+  async createGenerationJobEventsToken(jobId: number): Promise<GenerationJobEventsTokenResponse> {
+    return requestJson<GenerationJobEventsTokenResponse>(
+      `/images/generation-jobs/${jobId}/events-token`,
+      { method: 'POST' },
+      { auth: true },
+    )
+  },
+
+  buildGenerationJobEventsUrl(jobId: number, token: string): string {
+    return buildUrl(`/images/generation-jobs/${jobId}/events?token=${encodeURIComponent(token)}`)
   },
 
   async fetchGenerationJobs(limit = 20): Promise<GenerationJobResponse[]> {
