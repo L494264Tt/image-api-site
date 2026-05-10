@@ -54,6 +54,18 @@ export interface ImageGenerationRequest {
   user?: string
 }
 
+export interface PromptImproveRequest {
+  prompt: string
+  negative_prompt?: string
+  model?: string
+  style?: string
+}
+
+export interface PromptImproveResponse {
+  prompt: string
+  negative_prompt?: string
+}
+
 export interface ImageGenerationDataItem {
   url?: string
   b64_json?: string

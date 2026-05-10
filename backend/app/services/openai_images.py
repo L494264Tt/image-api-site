@@ -14,6 +14,71 @@ class OpenAIImageService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
+    async def improve_prompt(
+        self,
+        *,
+        prompt: str,
+        negative_prompt: str | None = None,
+        model: str | None = None,
+        style: str | None = None,
+    ) -> dict[str, str | None]:
+        endpoint = f"{self.settings.upstream_base_url.rstrip('/')}/v1/responses"
+        headers = {
+            "Authorization": f"Bearer {self.settings.upstream_api_key}",
+            "Content-Type": "application/json",
+        }
+        instructions = (
+            "你是图片生成提示词优化助手。请保留用户意图，把提示词改写得更适合图片生成。"
+            "只返回 JSON，字段为 prompt 和 negative_prompt，不要返回 Markdown。"
+        )
+        user_text = f"原始提示词：{prompt.strip()}"
+        if negative_prompt:
+            user_text += f"\n负面提示词：{negative_prompt.strip()}"
+        if model:
+            user_text += f"\n目标图片模型：{model}"
+        if style:
+            user_text += f"\n偏好风格：{style}"
+        payload = {
+            "model": self.settings.upstream_responses_model,
+            "input": [
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": user_text},
+            ],
+            "text": {"format": {"type": "json_object"}},
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=min(self.settings.upstream_timeout_seconds, 60)) as client:
+                response = await client.post(endpoint, headers=headers, json=payload)
+        except httpx.TimeoutException as exc:
+            raise UpstreamAPIError("Upstream request timed out", status_code=504) from exc
+        except httpx.HTTPError as exc:
+            raise UpstreamAPIError("Failed to contact upstream service", status_code=502) from exc
+
+        if response.status_code >= 400:
+            raise UpstreamAPIError(
+                self._extract_error_message(response.content) or "Upstream request failed",
+                status_code=response.status_code,
+            )
+
+        try:
+            payload = response.json()
+        except json.JSONDecodeError as exc:
+            raise UpstreamAPIError("Upstream response was not valid JSON", status_code=502) from exc
+
+        text = self._extract_response_text(payload)
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise UpstreamAPIError("Upstream prompt response was not valid JSON", status_code=502) from exc
+
+        if not isinstance(parsed, dict):
+            raise UpstreamAPIError("Upstream prompt response was invalid", status_code=502)
+        return {
+            "prompt": parsed.get("prompt") if isinstance(parsed.get("prompt"), str) else None,
+            "negative_prompt": parsed.get("negative_prompt") if isinstance(parsed.get("negative_prompt"), str) else None,
+        }
+
     def endpoint_type_for_request(self, request: ImageGenerationRequest) -> str:
         return "images.edits" if any(reference_image.data_url for reference_image in request.reference_images) else "responses"
 
@@ -277,3 +342,22 @@ class OpenAIImageService:
         if isinstance(payload.get("detail"), str):
             return payload["detail"]
         return None
+
+    def _extract_response_text(self, payload: dict[str, Any]) -> str:
+        if isinstance(payload.get("output_text"), str):
+            return payload["output_text"]
+        output = payload.get("output")
+        if isinstance(output, list):
+            chunks: list[str] = []
+            for item in output:
+                if not isinstance(item, dict):
+                    continue
+                content = item.get("content")
+                if not isinstance(content, list):
+                    continue
+                for part in content:
+                    if isinstance(part, dict) and isinstance(part.get("text"), str):
+                        chunks.append(part["text"])
+            if chunks:
+                return "".join(chunks)
+        raise UpstreamAPIError("Upstream response did not include text", status_code=502)

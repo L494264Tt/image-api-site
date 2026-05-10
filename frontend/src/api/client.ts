@@ -6,6 +6,8 @@ import type {
   ImageGenerationRequest,
   ImageGenerationResponse,
   ImageHistoryResponse,
+  PromptImproveRequest,
+  PromptImproveResponse,
   PromptTemplateCopy,
   ResponseFormat,
   UploadResponse,
@@ -370,6 +372,17 @@ export const apiClient = {
     return requestJson<GenerationJobResponse>(
       `/images/generation-jobs/${jobId}/retry`,
       { method: 'POST' },
+      { auth: true },
+    )
+  },
+
+  async improvePrompt(payload: PromptImproveRequest): Promise<PromptImproveResponse> {
+    return requestJson<PromptImproveResponse>(
+      '/prompts/improve',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
       { auth: true },
     )
   },
