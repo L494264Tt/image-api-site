@@ -17,6 +17,7 @@ import ImageGenerationForm from './components/ImageGenerationForm.vue'
 import LoginForm from './components/LoginForm.vue'
 import TaskCenter from './components/TaskCenter.vue'
 import UserMenu from './components/UserMenu.vue'
+import WorkspaceTabs, { type WorkspaceTabItem } from './components/WorkspaceTabs.vue'
 import { useActiveJobStorage } from './composables/useActiveJobStorage'
 import { getInitialLocale, messages, persistLocale } from './i18n'
 import type {
@@ -50,6 +51,7 @@ const historyItems = ref<HistoryRenderableImage[]>([])
 const historyTotal = ref(0)
 const historyPage = ref(1)
 const currentUser = ref<CurrentUser | null>(null)
+const activeWorkspaceTab = ref<'generate' | 'history' | 'admin'>('generate')
 const lastRequest = ref<ImageGenerationRequest | null>(null)
 const generatedAt = ref<string | null>(null)
 const activeJob = ref<GenerationJobResponse | null>(null)
@@ -67,7 +69,20 @@ const modelLabels = computed(() =>
 const availableSizes = computed(() => config.value.sizeOptions)
 const hasMoreHistory = computed(() => historyItems.value.length < historyTotal.value)
 const signedIn = computed(() => currentUser.value !== null)
+const isAdmin = computed(() => currentUser.value?.role === 'admin')
 const resultCount = computed(() => (signedIn.value ? historyItems.value.length : results.value.length))
+const workspaceTabs = computed<WorkspaceTabItem[]>(() => {
+  const tabs: WorkspaceTabItem[] = [
+    { id: 'generate', label: '生成' },
+    { id: 'history', label: '历史', badge: historyTotal.value > 0 ? String(historyTotal.value) : undefined },
+  ]
+
+  if (isAdmin.value) {
+    tabs.push({ id: 'admin', label: '管理' })
+  }
+
+  return tabs
+})
 const dateTimeFormatter = computed(
   () =>
     new Intl.DateTimeFormat(locale.value === 'zh' ? 'zh-CN' : 'en-US', {
@@ -93,6 +108,12 @@ onBeforeUnmount(() => {
 watch(locale, () => {
   persistLocale(locale.value)
   void loadShellData()
+})
+
+watch(isAdmin, (canUseAdmin) => {
+  if (!canUseAdmin && activeWorkspaceTab.value === 'admin') {
+    activeWorkspaceTab.value = 'generate'
+  }
 })
 
 async function initializeApp(): Promise<void> {
@@ -185,6 +206,7 @@ async function handleLogin(payload: LoginRequest): Promise<void> {
   try {
     const response = await apiClient.login(payload)
     currentUser.value = response.user
+    activeWorkspaceTab.value = 'generate'
     await loadPromptTemplates()
     await refreshGenerationJobs()
     await refreshHistory()
@@ -492,6 +514,7 @@ function expireSession(message: string): void {
 function resetSessionState(): void {
   clearStoredAccessToken()
   currentUser.value = null
+  activeWorkspaceTab.value = 'generate'
   replaceHistory([])
   replaceResults([])
   lastRequest.value = null
@@ -598,11 +621,13 @@ async function handleRetryJob(job: GenerationJobResponse): Promise<void> {
 }
 
 function handleReusePrompt(item: HistoryRenderableImage): void {
+  activeWorkspaceTab.value = 'generate'
   generationFormRef.value?.applyPrompt(item.prompt)
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> {
+  activeWorkspaceTab.value = 'generate'
   generationFormRef.value?.applyPrompt(`基于这张图片继续修改：${item.prompt}`)
   const asset = await apiClient.fetchProtectedImageAsset(item.originalUrl, item.mimeType)
   const response = await fetch(asset.objectUrl)
@@ -650,67 +675,85 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
       </section>
 
       <template v-else>
-        <GenerationStatus
-          :health-state="healthState"
-          :status-message="statusMessage"
-          :loading-config="loadingConfig"
-          :submitting="submitting"
-          :error-message="errorMessage"
-          :result-count="resultCount"
-          :copy="copy.status"
+        <WorkspaceTabs
+          v-model="activeWorkspaceTab"
+          :tabs="workspaceTabs"
+          aria-label="工作台导航"
         />
 
-        <ImageGenerationForm
-          ref="generationFormRef"
-          :busy="submitting"
-          :config="config"
-          :available-models="availableModels"
-          :prompt-templates="promptTemplates.length ? promptTemplates : copy.form.promptTemplates"
-          :copy="copy.form"
-          @create-template="handleCreatePromptTemplate"
-          @toggle-template-favorite="handleTogglePromptTemplateFavorite"
-          @submit="handleGenerate"
-        />
+        <section v-show="activeWorkspaceTab === 'generate'" class="workspace-view">
+          <GenerationStatus
+            :health-state="healthState"
+            :status-message="statusMessage"
+            :loading-config="loadingConfig"
+            :submitting="submitting"
+            :error-message="errorMessage"
+            :result-count="resultCount"
+            :copy="copy.status"
+          />
 
-        <GenerationResults
-          :items="results"
-          :busy="submitting"
-          :generated-at-label="generatedAtLabel"
-          :last-prompt="lastPrompt"
-          :copy="copy.results"
-        />
+          <ImageGenerationForm
+            ref="generationFormRef"
+            :busy="submitting"
+            :config="config"
+            :available-models="availableModels"
+            :prompt-templates="promptTemplates.length ? promptTemplates : copy.form.promptTemplates"
+            :copy="copy.form"
+            @create-template="handleCreatePromptTemplate"
+            @toggle-template-favorite="handleTogglePromptTemplateFavorite"
+            @submit="handleGenerate"
+          />
 
-        <TaskCenter
-          :jobs="generationJobs"
-          :busy="taskLoading"
-          :format-date-time="formatDateTime"
-          @refresh="refreshGenerationJobs"
-          @cancel="handleCancelJob"
-          @retry="handleRetryJob"
-        />
+          <GenerationResults
+            :items="results"
+            :busy="submitting"
+            :generated-at-label="generatedAtLabel"
+            :last-prompt="lastPrompt"
+            :copy="copy.results"
+          />
 
-        <HistoryGallery
-          :items="historyItems"
-          :busy="historyLoading"
-          :error-message="historyErrorMessage"
-          :total="historyTotal"
-          :has-more="hasMoreHistory"
-          :available-models="availableModels"
-          :model-labels="modelLabels"
-          :available-sizes="availableSizes"
-          :format-date-time="formatDateTime"
-          :copy="copy.history"
-          @filters-change="handleHistoryFilters"
-          @load-more="loadMoreHistory"
-          @toggle-favorite="handleToggleFavorite"
-          @delete-images="handleDeleteImages"
-          @bulk-download="handleBulkDownload"
-          @open-image="handleOpenImage"
-          @download-image="handleDownloadImage"
-          @reuse-prompt="handleReusePrompt"
-          @edit-from-image="handleEditFromImage"
-          @refresh="refreshHistory"
-        />
+          <TaskCenter
+            :jobs="generationJobs"
+            :busy="taskLoading"
+            :format-date-time="formatDateTime"
+            @refresh="refreshGenerationJobs"
+            @cancel="handleCancelJob"
+            @retry="handleRetryJob"
+          />
+        </section>
+
+        <section v-show="activeWorkspaceTab === 'history'" class="workspace-view">
+          <HistoryGallery
+            :items="historyItems"
+            :busy="historyLoading"
+            :error-message="historyErrorMessage"
+            :total="historyTotal"
+            :has-more="hasMoreHistory"
+            :available-models="availableModels"
+            :model-labels="modelLabels"
+            :available-sizes="availableSizes"
+            :format-date-time="formatDateTime"
+            :copy="copy.history"
+            @filters-change="handleHistoryFilters"
+            @load-more="loadMoreHistory"
+            @toggle-favorite="handleToggleFavorite"
+            @delete-images="handleDeleteImages"
+            @bulk-download="handleBulkDownload"
+            @open-image="handleOpenImage"
+            @download-image="handleDownloadImage"
+            @reuse-prompt="handleReusePrompt"
+            @edit-from-image="handleEditFromImage"
+            @refresh="refreshHistory"
+          />
+        </section>
+
+        <section v-if="isAdmin && activeWorkspaceTab === 'admin'" class="workspace-view">
+          <div class="admin-placeholder">
+            <p class="admin-placeholder__eyebrow">管理</p>
+            <h2>管理面板</h2>
+            <p>AdminPanel 正在集成中，后续会在这里接入管理员功能。</p>
+          </div>
+        </section>
       </template>
     </main>
   </div>
