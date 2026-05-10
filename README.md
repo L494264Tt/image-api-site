@@ -67,6 +67,7 @@ docker compose --env-file .env.deploy up -d --build
 ```
 
 默认前端容器监听 `${FRONTEND_PORT:-8088}`，并把 `/api/*` 代理到后端容器。
+后端首次启动会根据 SQLAlchemy 模型自动创建数据库表；仓库也包含 Alembic 迁移文件，位于 `backend/alembic/versions/`。
 
 服务器部署可使用：
 
@@ -213,6 +214,7 @@ docker compose --env-file .env.deploy up -d --build
 ```
 
 The frontend container listens on `${FRONTEND_PORT:-8088}` by default and proxies `/api/*` to the backend container.
+On first startup, the backend creates database tables from the SQLAlchemy models automatically. Alembic migration files are also included under `backend/alembic/versions/`.
 
 For the server deployment profile:
 

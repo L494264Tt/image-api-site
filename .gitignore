@@ -13,11 +13,13 @@ __pycache__/
 # Frontend
 frontend/node_modules/
 frontend/.vscode/
+frontend/dist/
 
 # Generated artifacts
 backend/test_image_api_site.db
 backend/test_storage/
 storage/
+postgres/
 
 # OS/editor
 .DS_Store

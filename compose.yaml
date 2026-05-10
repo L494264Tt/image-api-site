@@ -28,9 +28,9 @@ services:
       timeout: 5s
       retries: 10
     volumes:
-      - /Users/l494264tt/DockerData/postgres/data:/var/lib/postgresql
-      - /Users/l494264tt/DockerData/postgres/log:/var/log/postgresql
-      - /Users/l494264tt/DockerData/postgres/config:/etc/postgresql/conf.d
+      - ./postgres/data:/var/lib/postgresql
+      - ./postgres/log:/var/log/postgresql
+      - ./postgres/config:/etc/postgresql/conf.d
 
   backend:
     build:
