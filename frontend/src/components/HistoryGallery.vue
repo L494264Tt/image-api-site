@@ -40,6 +40,7 @@ const filters = reactive({
 })
 const selectedIds = ref<number[]>([])
 const previewItem = ref<HistoryRenderableImage | null>(null)
+const selecting = ref(false)
 let filterTimer: number | null = null
 
 function applyFilters(): void {
@@ -81,6 +82,13 @@ function downloadSelected(): void {
   emit('bulkDownload', selectedIds.value)
 }
 
+function toggleSelectionMode(): void {
+  selecting.value = !selecting.value
+  if (!selecting.value) {
+    selectedIds.value = []
+  }
+}
+
 function modelLabel(model: string): string {
   return props.modelLabels[model] || model
 }
@@ -96,10 +104,17 @@ function modelLabel(model: string): string {
 
       <div class="history-panel__controls">
         <span class="history-panel__count">{{ copy.countLabel }} {{ items.length }} / {{ total }}</span>
-        <button type="button" class="history-panel__refresh" :disabled="selectedIds.length === 0" @click="downloadSelected">
+        <button
+          type="button"
+          :class="['history-panel__mode', { 'history-panel__mode--active': selecting }]"
+          @click="toggleSelectionMode"
+        >
+          {{ selecting ? '退出选择' : '批量选择' }}
+        </button>
+        <button v-if="selecting" type="button" class="history-panel__refresh" :disabled="selectedIds.length === 0" @click="downloadSelected">
           批量下载
         </button>
-        <button type="button" class="history-panel__refresh" :disabled="selectedIds.length === 0" @click="deleteSelected">
+        <button v-if="selecting" type="button" class="history-panel__refresh" :disabled="selectedIds.length === 0" @click="deleteSelected">
           删除选中
         </button>
         <button type="button" class="history-panel__refresh" :disabled="busy" @click="emit('refresh')">
@@ -128,6 +143,17 @@ function modelLabel(model: string): string {
       <input v-model="filters.createdTo" type="date" title="结束时间" />
     </form>
 
+    <div v-if="selecting" class="history-bulkbar">
+      <div>
+        <strong>已选择 {{ selectedIds.length }} 张图片</strong>
+        <span>进入批量模式后可下载或删除选中的历史图片。</span>
+      </div>
+      <div class="history-bulkbar__actions">
+        <button class="button button--ghost" type="button" :disabled="selectedIds.length === 0" @click="downloadSelected">下载选中</button>
+        <button class="button button--danger" type="button" :disabled="selectedIds.length === 0" @click="deleteSelected">删除选中</button>
+      </div>
+    </div>
+
     <p v-if="errorMessage" class="history-panel__error">{{ errorMessage }}</p>
 
     <div v-if="busy && items.length === 0" class="history-panel__empty">
@@ -141,9 +167,13 @@ function modelLabel(model: string): string {
     </div>
 
     <div v-else class="history-grid">
-      <article v-for="item in items" :key="item.recordId" class="history-card">
+      <article
+        v-for="item in items"
+        :key="item.recordId"
+        :class="['history-card', { 'history-card--selected': selectedIds.includes(item.recordId) }]"
+      >
         <div class="history-card__media">
-          <label class="history-card__select">
+          <label v-if="selecting" class="history-card__select">
             <input
               type="checkbox"
               :checked="selectedIds.includes(item.recordId)"
@@ -153,16 +183,30 @@ function modelLabel(model: string): string {
           <button type="button" class="history-card__image-button" @click="previewItem = item">
             <img :src="item.src" :alt="item.alt" loading="lazy" />
           </button>
+
+          <div class="history-card__overlay">
+            <button class="history-card__quick" type="button" @click="emit('toggleFavorite', item)">
+              {{ item.isFavorite ? '已收藏' : '收藏' }}
+            </button>
+            <button class="history-card__quick" type="button" @click="emit('downloadImage', item)">下载</button>
+            <button class="history-card__quick" type="button" @click="emit('reusePrompt', item)">复用</button>
+            <button class="history-card__quick" type="button" @click="emit('editFromImage', item)">再编辑</button>
+          </div>
         </div>
 
         <div class="history-card__body">
-          <p class="history-card__prompt">{{ copy.prompt }}: {{ item.prompt }}</p>
+          <div class="history-card__body-head">
+            <p class="history-card__prompt">{{ item.prompt }}</p>
+            <button class="history-card__favorite" type="button" @click="emit('toggleFavorite', item)">
+              {{ item.isFavorite ? '★' : '☆' }}
+            </button>
+          </div>
 
           <div class="history-card__meta">
-            <span>{{ copy.model }}: {{ modelLabel(item.model) }}</span>
-            <span>{{ copy.size }}: {{ item.size }}</span>
-            <span>{{ copy.createdAt }}: {{ formatDateTime(item.createdAt) }}</span>
-            <span v-if="item.project">项目: {{ item.project }}</span>
+            <span>{{ modelLabel(item.model) }}</span>
+            <span>{{ item.size }}</span>
+            <span>{{ formatDateTime(item.createdAt) }}</span>
+            <span v-if="item.project">项目 {{ item.project }}</span>
           </div>
           <div v-if="item.tags.length" class="history-card__tags">
             <span v-for="tag in item.tags" :key="tag">#{{ tag }}</span>
@@ -189,19 +233,39 @@ function modelLabel(model: string): string {
 
     <div v-if="previewItem" class="image-modal" @click.self="previewItem = null">
       <article class="image-modal__content">
-        <button type="button" class="image-modal__close" @click="previewItem = null">关闭</button>
-        <img :src="previewItem.src" :alt="previewItem.alt" />
+        <div class="image-modal__stage">
+          <img :src="previewItem.src" :alt="previewItem.alt" />
+        </div>
         <div class="image-modal__body">
-          <h3>图片详情</h3>
-          <p>{{ previewItem.prompt }}</p>
-          <dl>
+          <header class="image-modal__header">
+            <div>
+              <p>检查器</p>
+              <h3>图片详情</h3>
+            </div>
+            <button type="button" class="image-modal__close" @click="previewItem = null">关闭</button>
+          </header>
+
+          <section class="image-modal__section">
+            <span>{{ copy.prompt }}</span>
+            <p>{{ previewItem.prompt }}</p>
+          </section>
+
+          <dl class="image-modal__meta">
             <div><dt>{{ copy.model }}</dt><dd>{{ modelLabel(previewItem.model) }}</dd></div>
+            <div v-if="previewItem.requestedModel"><dt>请求模型</dt><dd>{{ modelLabel(previewItem.requestedModel) }}</dd></div>
+            <div v-if="previewItem.endpointType"><dt>端点类型</dt><dd>{{ previewItem.endpointType }}</dd></div>
             <div><dt>{{ copy.size }}</dt><dd>{{ previewItem.size }}</dd></div>
             <div v-if="previewItem.project"><dt>项目</dt><dd>{{ previewItem.project }}</dd></div>
             <div><dt>{{ copy.createdAt }}</dt><dd>{{ formatDateTime(previewItem.createdAt) }}</dd></div>
           </dl>
-          <p v-if="previewItem.tags.length">标签: {{ previewItem.tags.map((tag) => `#${tag}`).join(' ') }}</p>
-          <p v-if="previewItem.revisedPrompt">{{ copy.revisedPrompt }}: {{ previewItem.revisedPrompt }}</p>
+          <section v-if="previewItem.tags.length" class="image-modal__section">
+            <span>标签</span>
+            <p>{{ previewItem.tags.map((tag) => `#${tag}`).join(' ') }}</p>
+          </section>
+          <section v-if="previewItem.revisedPrompt" class="image-modal__section">
+            <span>{{ copy.revisedPrompt }}</span>
+            <p>{{ previewItem.revisedPrompt }}</p>
+          </section>
           <div class="image-modal__actions">
             <button class="button button--ghost" type="button" @click="emit('reusePrompt', previewItem)">复用提示词</button>
             <button class="button button--ghost" type="button" @click="emit('editFromImage', previewItem)">基于此图再改</button>
@@ -268,7 +332,25 @@ h2 {
   cursor: pointer;
 }
 
-.history-panel__refresh:disabled {
+.history-panel__mode {
+  min-height: 2.8rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(18, 50, 43, 0.18);
+  background: #fff;
+  color: var(--ink-strong);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.history-panel__mode--active {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
+.history-panel__refresh:disabled,
+.button:disabled {
   opacity: 0.65;
   cursor: not-allowed;
 }
@@ -319,6 +401,37 @@ h2 {
   border: 1px solid rgba(172, 55, 43, 0.2);
 }
 
+.history-bulkbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.history-bulkbar div:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.history-bulkbar strong {
+  color: var(--ink-strong);
+}
+
+.history-bulkbar span {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.history-bulkbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .history-panel__empty {
   display: grid;
   place-items: center;
@@ -343,31 +456,60 @@ h2 {
 
 .history-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 1rem;
 }
 
 .history-card {
+  position: relative;
   overflow: hidden;
   border-radius: 0.5rem;
   border: 1px solid rgba(18, 50, 43, 0.12);
   background: rgba(255, 255, 255, 0.88);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.history-card:hover,
+.history-card:focus-within {
+  border-color: rgba(18, 50, 43, 0.24);
+  box-shadow: 0 18px 42px rgba(18, 50, 43, 0.14);
+  transform: translateY(-2px);
+}
+
+.history-card--selected {
+  border-color: rgba(37, 99, 235, 0.72);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .history-card__media {
   position: relative;
-  aspect-ratio: 1 / 1;
-  background: linear-gradient(160deg, rgba(18, 50, 43, 0.12), rgba(200, 170, 112, 0.2));
+  aspect-ratio: 4 / 5;
+  background: #111;
 }
 
 .history-card__select {
   position: absolute;
-  top: 0.45rem;
-  left: 0.45rem;
+  z-index: 3;
+  top: 0.65rem;
+  left: 0.65rem;
   display: inline-flex;
-  padding: 0.35rem;
-  border-radius: 0.4rem;
-  background: rgba(255, 255, 255, 0.86);
+  width: 2.15rem;
+  height: 2.15rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.history-card__select input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #2563eb;
 }
 
 .history-card__media img {
@@ -386,10 +528,49 @@ h2 {
   cursor: zoom-in;
 }
 
+.history-card__overlay {
+  position: absolute;
+  z-index: 2;
+  inset: auto 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  padding: 4rem 0.65rem 0.65rem;
+  background: linear-gradient(180deg, rgba(9, 12, 11, 0), rgba(9, 12, 11, 0.82));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.history-card:hover .history-card__overlay,
+.history-card:focus-within .history-card__overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.history-card__quick {
+  min-height: 2.15rem;
+  padding: 0.45rem 0.35rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.9);
+  color: #13201c;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .history-card__body {
   display: grid;
   gap: 0.55rem;
-  padding: 0.7rem;
+  padding: 0.75rem;
+}
+
+.history-card__body-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.55rem;
+  align-items: start;
 }
 
 .history-card__prompt,
@@ -404,7 +585,10 @@ h2 {
 
 .history-card__prompt {
   -webkit-line-clamp: 2;
-  font-size: 0.88rem;
+  color: var(--ink-strong);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .history-card__revised {
@@ -413,10 +597,17 @@ h2 {
 }
 
 .history-card__meta {
-  display: grid;
-  gap: 0.2rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   color: var(--ink-muted);
   font-size: 0.78rem;
+}
+
+.history-card__meta span {
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(18, 50, 43, 0.06);
 }
 
 .history-card__tags {
@@ -432,6 +623,17 @@ h2 {
   color: var(--accent-strong);
   font-size: 0.76rem;
   font-weight: 700;
+}
+
+.history-card__favorite {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(18, 50, 43, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+  color: #b45309;
+  font-size: 1.05rem;
+  cursor: pointer;
 }
 
 .history-card__actions {
@@ -453,12 +655,19 @@ h2 {
   text-decoration: none;
   font-weight: 600;
   font-size: 0.78rem;
+  cursor: pointer;
 }
 
 .button--ghost {
   background: rgba(18, 50, 43, 0.08);
   color: var(--ink-strong);
   border-color: rgba(18, 50, 43, 0.1);
+}
+
+.button--danger {
+  background: rgba(172, 55, 43, 0.1);
+  color: #8d2a20;
+  border-color: rgba(172, 55, 43, 0.2);
 }
 
 .image-modal {
@@ -474,62 +683,121 @@ h2 {
 .image-modal__content {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(260px, 58vw) minmax(260px, 360px);
-  max-width: min(1120px, 96vw);
+  grid-template-columns: minmax(300px, 1fr) minmax(320px, 390px);
+  width: min(1180px, 96vw);
   max-height: 92vh;
   overflow: auto;
-  border-radius: 0.75rem;
-  background: #fffaf0;
+  border-radius: 0.5rem;
+  background: #fff;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
 }
 
-.image-modal__content > img {
+.image-modal__stage {
+  display: grid;
+  place-items: center;
+  min-height: min(76vh, 760px);
+  background:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.035) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.035) 25%, transparent 25%),
+    #101412;
+  background-size: 28px 28px;
+}
+
+.image-modal__stage img {
   width: 100%;
   height: 100%;
-  max-height: 92vh;
+  max-height: 88vh;
   object-fit: contain;
-  background: #111;
 }
 
 .image-modal__body {
   display: grid;
   align-content: start;
-  gap: 0.85rem;
-  padding: 1.25rem;
+  gap: 1rem;
+  padding: 1rem;
+  border-left: 1px solid rgba(18, 50, 43, 0.1);
+  background: #fbfcfb;
 }
 
-.image-modal__body h3,
-.image-modal__body p,
-.image-modal__body dl {
-  margin: 0;
-}
-
-.image-modal__body dl {
-  display: grid;
-  gap: 0.45rem;
-}
-
-.image-modal__body dl div {
+.image-modal__header {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
+  align-items: start;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(18, 50, 43, 0.1);
 }
 
-.image-modal__body dt {
+.image-modal__header p,
+.image-modal__header h3,
+.image-modal__section p,
+.image-modal__meta {
+  margin: 0;
+}
+
+.image-modal__header p,
+.image-modal__section span {
+  color: var(--ink-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.image-modal__header h3 {
+  margin-top: 0.2rem;
+  color: var(--ink-strong);
+  font-size: 1.25rem;
+}
+
+.image-modal__section {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(18, 50, 43, 0.08);
+  background: #fff;
+}
+
+.image-modal__section p {
+  color: var(--ink-strong);
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+.image-modal__meta {
+  display: grid;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(18, 50, 43, 0.08);
+  overflow: hidden;
+  background: #fff;
+}
+
+.image-modal__meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid rgba(18, 50, 43, 0.08);
+}
+
+.image-modal__meta div:last-child {
+  border-bottom: 0;
+}
+
+.image-modal__meta dt {
   color: var(--ink-muted);
 }
 
-.image-modal__body dd {
+.image-modal__meta dd {
   margin: 0;
   color: var(--ink-strong);
   font-weight: 700;
+  text-align: right;
 }
 
 .image-modal__close {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  border: 0;
+  border: 1px solid rgba(18, 50, 43, 0.1);
   border-radius: 999px;
   padding: 0.45rem 0.7rem;
   background: rgba(255, 255, 255, 0.92);
@@ -542,6 +810,7 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  padding-top: 0.2rem;
 }
 
 @media (max-width: 720px) {
@@ -554,8 +823,36 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .history-bulkbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .history-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .history-card__overlay {
+    opacity: 1;
+    pointer-events: auto;
+    padding: 0.65rem;
+    background: linear-gradient(180deg, rgba(9, 12, 11, 0), rgba(9, 12, 11, 0.82));
+  }
+
+  .history-card__actions {
+    display: none;
+  }
+
   .image-modal__content {
     grid-template-columns: 1fr;
+  }
+
+  .image-modal__stage {
+    min-height: 46vh;
+  }
+
+  .image-modal__body {
+    border-left: 0;
   }
 }
 </style>
