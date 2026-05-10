@@ -58,6 +58,32 @@ class CurrentUserResponse(BaseModel):
     role: str
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=12, max_length=128)
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    role: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    last_login_at: datetime | None = None
+
+
+class UserCreateRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=12, max_length=128)
+    role: str = Field(default="user", min_length=1, max_length=32)
+    is_active: bool = True
+
+
+class UserStatusRequest(BaseModel):
+    is_active: bool
+
+
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

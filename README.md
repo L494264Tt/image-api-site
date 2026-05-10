@@ -75,7 +75,13 @@ docker compose --env-file .env.deploy up -d --build
 `.env.deploy` 中至少需要设置真实的 `UPSTREAM_BASE_URL`、`UPSTREAM_API_KEY`、`POSTGRES_PASSWORD`、`DATABASE_URL`、`JWT_SECRET_KEY`、`ADMIN_PASSWORD` 和 `CORS_ORIGINS`。占位值不能直接用于启动生产环境，后端会拒绝明显的示例密钥和弱管理员密码。
 
 默认前端容器监听 `${FRONTEND_PORT:-8088}`，并把 `/api/*` 代理到后端容器。
-无需手动导入 SQL 文件。Postgres 容器启动后，后端首次启动会根据 SQLAlchemy 模型自动创建数据库表，并创建初始管理员账号；仓库也包含 Alembic 迁移文件，位于 `backend/alembic/versions/`。
+生产数据库 schema 由 Alembic 管理。部署新版本前请运行 `docker compose --env-file .env.deploy run --rm backend alembic upgrade head`，或明确设置 `RUN_DATABASE_MIGRATIONS_ON_STARTUP=true` 让后端启动时执行迁移。后端启动后会创建初始管理员账号，但默认不会在非 SQLite 数据库上直接建表或补列。
+
+部署后可运行配置检查：
+
+```bash
+docker compose --env-file .env.deploy run --rm backend python -m app.check_config
+```
 
 服务器部署可使用：
 
@@ -101,12 +107,15 @@ docker compose --env-file .env.deploy -f compose.server.yaml up -d --build
 | `ADMIN_PASSWORD` | 首次启动创建的管理员密码 |
 | `CORS_ORIGINS` | 允许访问后端的前端 Origin，逗号分隔 |
 | `ENABLE_API_DOCS` | 是否开启 `/docs`、`/redoc` 和 `/openapi.json` |
+| `RUN_DATABASE_MIGRATIONS_ON_STARTUP` | 是否在后端启动时自动运行 Alembic 迁移 |
 | `LOGIN_RATE_LIMIT_ATTEMPTS` | 登录限流窗口内允许失败次数 |
 | `MAX_ACTIVE_GENERATION_JOBS_PER_USER` | 单用户排队/运行中任务上限 |
 | `MAX_BULK_DOWNLOAD_IMAGES` | 单次批量下载图片数量上限 |
 | `MAX_BULK_DOWNLOAD_BYTES` | 单次批量下载总字节上限 |
 
 ### 验证命令
+
+CI 会在 GitHub Actions 中执行后端 Docker 测试、前端构建和后端镜像构建。
 
 前端：
 
@@ -156,6 +165,7 @@ docker run --rm \
 - 确认 `.env.deploy` 没有提交到 Git。
 - 不要提交 `.env`、`.env.deploy`、`storage/`、`postgres/`、`frontend/dist/` 或本地数据库文件。
 - 确认所有示例密钥和默认密码已经替换。
+- 确认 Alembic 迁移已执行，或已明确开启 `RUN_DATABASE_MIGRATIONS_ON_STARTUP=true`。
 - 确认 `CORS_ORIGINS` 只包含真实前端域名。
 - 确认外层网关已经配置 HTTPS。
 - 确认 `storage/` 和 Postgres 数据目录有备份策略。
@@ -237,7 +247,13 @@ docker compose --env-file .env.deploy up -d --build
 At minimum, `.env.deploy` must contain real values for `UPSTREAM_BASE_URL`, `UPSTREAM_API_KEY`, `POSTGRES_PASSWORD`, `DATABASE_URL`, `JWT_SECRET_KEY`, `ADMIN_PASSWORD`, and `CORS_ORIGINS`. Placeholder values cannot be used for production startup. The backend rejects obvious example secrets and weak admin passwords.
 
 The frontend container listens on `${FRONTEND_PORT:-8088}` by default and proxies `/api/*` to the backend container.
-No manual SQL import is required. After the Postgres container starts, the backend creates database tables from the SQLAlchemy models automatically on first startup and bootstraps the initial admin account. Alembic migration files are also included under `backend/alembic/versions/`.
+Production database schemas are managed by Alembic. Before deploying a new version, run `docker compose --env-file .env.deploy run --rm backend alembic upgrade head`, or explicitly set `RUN_DATABASE_MIGRATIONS_ON_STARTUP=true` to run migrations during backend startup. The backend bootstraps the initial admin account after startup, but by default it does not create or patch non-SQLite database schemas directly.
+
+After deployment, run the configuration checker:
+
+```bash
+docker compose --env-file .env.deploy run --rm backend python -m app.check_config
+```
 
 For the server deployment profile:
 
@@ -263,12 +279,15 @@ docker compose --env-file .env.deploy -f compose.server.yaml up -d --build
 | `ADMIN_PASSWORD` | Admin password created on first startup |
 | `CORS_ORIGINS` | Comma-separated frontend origins allowed by the backend |
 | `ENABLE_API_DOCS` | Enables `/docs`, `/redoc`, and `/openapi.json` |
+| `RUN_DATABASE_MIGRATIONS_ON_STARTUP` | Runs Alembic migrations during backend startup when enabled |
 | `LOGIN_RATE_LIMIT_ATTEMPTS` | Allowed failed login attempts per rate-limit window |
 | `MAX_ACTIVE_GENERATION_JOBS_PER_USER` | Per-user queued/running generation job limit |
 | `MAX_BULK_DOWNLOAD_IMAGES` | Maximum images per bulk download |
 | `MAX_BULK_DOWNLOAD_BYTES` | Maximum total bytes per bulk download |
 
 ### Verification
+
+CI runs backend Docker tests, frontend builds, and backend image builds in GitHub Actions.
 
 Frontend:
 
@@ -318,6 +337,7 @@ docker run --rm \
 - Confirm `.env.deploy` is not committed.
 - Do not commit `.env`, `.env.deploy`, `storage/`, `postgres/`, `frontend/dist/`, or local database files.
 - Confirm all example secrets and default passwords have been replaced.
+- Confirm Alembic migrations have run, or explicitly enable `RUN_DATABASE_MIGRATIONS_ON_STARTUP=true`.
 - Confirm `CORS_ORIGINS` only contains real frontend domains.
 - Confirm HTTPS is configured at the outer gateway.
 - Confirm backup coverage for `storage/` and Postgres data directories.
