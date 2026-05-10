@@ -162,7 +162,7 @@ docker run --rm \
 
 ### 许可证
 
-当前仓库尚未声明开源许可证。公开使用、复制、修改或分发前，请先补充明确的 `LICENSE` 文件。
+本项目基于 MIT License 开源，详见 `LICENSE`。
 
 ## English
 
@@ -324,4 +324,4 @@ docker run --rm \
 
 ### License
 
-No open-source license is declared yet. Add an explicit `LICENSE` file before public use, copying, modification, or redistribution.
+This project is open-sourced under the MIT License. See `LICENSE` for details.
