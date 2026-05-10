@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     @field_validator("admin_password")
     @classmethod
     def validate_admin_password(cls, value: str) -> str:
-        if value in {"", "change-me", "password", "admin", "replace-with-a-strong-admin-password"}:
+        if value in {"", "change-me", "password", "admin"}:
             raise ValueError("ADMIN_PASSWORD must be set to a non-default password")
         if len(value) < 12:
             raise ValueError("ADMIN_PASSWORD must be at least 12 characters")

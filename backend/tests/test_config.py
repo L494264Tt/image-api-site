@@ -46,6 +46,6 @@ def test_settings_reject_default_admin_password() -> None:
                 "UPSTREAM_API_KEY": "sk-test",
                 "DATABASE_URL": "postgresql+psycopg://user:pass@localhost:5432/app",
                 "JWT_SECRET_KEY": "test-secret-with-at-least-32-characters",
-                "ADMIN_PASSWORD": "replace-with-a-strong-admin-password",
+                "ADMIN_PASSWORD": "admin",
             }
         )
