@@ -11,6 +11,7 @@ const emit = defineEmits<{
   refresh: []
   cancel: [job: GenerationJobResponse]
   retry: [job: GenerationJobResponse]
+  delete: [job: GenerationJobResponse]
 }>()
 
 const statusLabels: Record<string, string> = {
@@ -28,6 +29,7 @@ function canCancel(job: GenerationJobResponse): boolean {
 function canRetry(job: GenerationJobResponse): boolean {
   return job.status === 'failed' || job.status === 'canceled'
 }
+
 </script>
 
 <template>
@@ -55,6 +57,13 @@ function canRetry(job: GenerationJobResponse): boolean {
         <div class="task-item__actions">
           <button v-if="canCancel(job)" type="button" @click="emit('cancel', job)">取消</button>
           <button v-if="canRetry(job)" type="button" @click="emit('retry', job)">重试</button>
+          <button
+            type="button"
+            class="task-item__delete"
+            @click="emit('delete', job)"
+          >
+            删除记录
+          </button>
         </div>
       </article>
     </div>
@@ -66,10 +75,10 @@ function canRetry(job: GenerationJobResponse): boolean {
   display: grid;
   gap: 0.9rem;
   padding: clamp(1rem, 1.8vw, 1.35rem);
-  border: 1px solid var(--line-strong);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.55rem;
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-card);
 }
 
 .task-center__header {
@@ -85,6 +94,7 @@ function canRetry(job: GenerationJobResponse): boolean {
   font-size: 0.8rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  font-weight: 800;
 }
 
 h2 {
@@ -98,9 +108,9 @@ h2 {
 .task-item__actions button {
   min-height: 2.4rem;
   padding: 0.55rem 0.85rem;
-  border: 1px solid rgba(18, 50, 43, 0.12);
-  border-radius: 0.5rem;
-  background: rgba(18, 50, 43, 0.06);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.45rem;
+  background: var(--surface-subtle);
   color: var(--ink-strong);
   font-weight: 700;
   cursor: pointer;
@@ -109,6 +119,10 @@ h2 {
 .task-center__button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.task-item__actions .task-item__delete {
+  color: var(--danger);
 }
 
 .task-center__empty {
@@ -122,13 +136,13 @@ h2 {
 
 .task-item {
   display: grid;
-  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
   gap: 0.85rem;
-  align-items: center;
+  align-items: stretch;
   padding: 0.75rem;
-  border: 1px solid rgba(18, 50, 43, 0.1);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.45rem;
+  background: #fff;
 }
 
 .task-item__main {
@@ -153,25 +167,26 @@ h2 {
 .task-item__status {
   width: fit-content;
   padding: 0.25rem 0.5rem;
-  border-radius: 0.5rem;
-  background: rgba(18, 50, 43, 0.08);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
   color: var(--ink-strong);
   font-size: 0.82rem;
   font-weight: 700;
 }
 
 .task-item--failed .task-item__status {
-  background: rgba(172, 55, 43, 0.1);
-  color: #8d2a20;
+  background: rgba(185, 28, 28, 0.08);
+  color: var(--danger);
 }
 
 .task-item--succeeded .task-item__status {
-  background: rgba(31, 107, 88, 0.1);
-  color: #1f6b58;
+  background: rgba(15, 118, 110, 0.1);
+  color: var(--accent-strong);
 }
 
 .task-item__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 

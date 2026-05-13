@@ -26,20 +26,20 @@ def capability_for_model(model: str) -> ImageModelCapability:
     if model == "gpt-image-2":
         return ImageModelCapability(
             id=model,
-            label="高清生成",
+            label=model,
             supports_text_to_image=True,
-            supports_image_to_image=False,
+            supports_image_to_image=True,
             default_endpoint="responses",
             sizes=DEFAULT_SIZES,
             qualities=DEFAULT_QUALITIES,
-            backgrounds=["auto", "opaque"],
-            input_fidelities=["auto"],
-            supports_transparent_background=False,
+            backgrounds=DEFAULT_BACKGROUNDS,
+            input_fidelities=DEFAULT_INPUT_FIDELITIES,
+            supports_transparent_background=True,
             estimated_seconds=90,
         )
     return ImageModelCapability(
         id=model,
-        label="图片修改" if model in {"gpt-image-1.5", "gpt-image-1"} else "通用生成",
+        label=model,
         supports_text_to_image=True,
         supports_image_to_image=True,
         default_endpoint="images.edits",

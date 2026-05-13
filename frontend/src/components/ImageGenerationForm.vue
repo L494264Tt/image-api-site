@@ -66,10 +66,6 @@ watch(
       form.style = config.styleOptions[0] || ''
     }
 
-    if (!config.responseFormatOptions.includes(form.responseFormat)) {
-      form.responseFormat = config.responseFormatOptions[0] || 'url'
-    }
-
     if (!config.backgroundOptions.includes(form.background)) {
       form.background = config.backgroundOptions[0] || ''
     }
@@ -156,15 +152,11 @@ onBeforeUnmount(() => {
 })
 
 function labelForOption(kind: keyof FormCopy['optionLabels'], value: string): string {
-  return props.copy.optionLabels[kind][value] || value
+  return props.copy.optionLabels[kind]?.[value] || value
 }
 
 function labelForModel(model: string): string {
-  const capability = props.config.modelCapabilities.find((item) => item.id === model)
-  if (!capability) {
-    return model
-  }
-  return capability.id === capability.label ? capability.label : `${capability.label}`
+  return model
 }
 
 async function submitForm(): Promise<void> {
@@ -328,7 +320,6 @@ async function buildRequest(): Promise<ImageGenerationRequest> {
     aspect_ratio: form.aspectRatio || undefined,
     quality: form.quality || undefined,
     style: form.style || undefined,
-    response_format: 'b64_json',
     negative_prompt: form.negativePrompt.trim() || undefined,
     background: form.background === 'auto' ? undefined : form.background || undefined,
     input_fidelity: form.inputFidelity === 'auto' ? undefined : form.inputFidelity || undefined,
@@ -362,7 +353,6 @@ function createInitialForm(
     n: 1,
     quality: config.qualityOptions[0] || '',
     style: config.styleOptions[0] || '',
-    responseFormat: config.responseFormatOptions[0] || 'url',
     background: config.backgroundOptions[0] || 'auto',
     inputFidelity: config.inputFidelityOptions[0] || 'auto',
     seed: '',
@@ -569,10 +559,10 @@ defineExpose({
   display: grid;
   gap: 1rem;
   padding: clamp(1.15rem, 2vw, 1.8rem);
-  border-radius: 0.5rem;
-  border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: var(--shadow-soft);
+  border-radius: 0.55rem;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-card);
 }
 
 .panel__header {
@@ -588,6 +578,7 @@ defineExpose({
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent-strong);
+  font-weight: 800;
 }
 
 h2 {
@@ -604,7 +595,8 @@ h2 {
   min-width: 6.5rem;
   padding: 0.45rem 0.75rem;
   border-radius: 0.5rem;
-  background: rgba(18, 50, 43, 0.08);
+  border: 1px solid rgba(15, 118, 110, 0.12);
+  background: rgba(15, 118, 110, 0.08);
   color: var(--ink-strong);
   font-size: 0.88rem;
   font-weight: 600;
@@ -658,9 +650,9 @@ h2 {
   gap: 0.2rem;
   min-height: 4.5rem;
   padding: 0.8rem 0.9rem;
-  border: 1px solid rgba(18, 50, 43, 0.12);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.45rem;
+  background: var(--surface-subtle);
   color: var(--ink-soft);
   text-align: left;
   cursor: pointer;
@@ -682,14 +674,15 @@ h2 {
 
 .prompt-template small {
   width: fit-content;
-  color: var(--accent-strong);
+  color: var(--accent-blue);
   font-weight: 700;
 }
 
 .prompt-template:hover {
   transform: translateY(-1px);
-  border-color: rgba(18, 50, 43, 0.24);
-  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(37, 99, 235, 0.22);
+  background: #fff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
 }
 
 .prompt-templates__category {
@@ -706,9 +699,9 @@ h2 {
 .prompt-templates__actions button {
   justify-self: start;
   padding: 0.55rem 0.8rem;
-  border: 1px solid rgba(18, 50, 43, 0.12);
-  border-radius: 0.5rem;
-  background: rgba(18, 50, 43, 0.06);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.45rem;
+  background: var(--surface-subtle);
   color: var(--ink-strong);
   font-weight: 700;
   cursor: pointer;
@@ -723,9 +716,9 @@ h2 {
   display: grid;
   gap: 0.75rem;
   padding: 0.9rem;
-  border: 1px solid rgba(18, 50, 43, 0.12);
-  border-radius: 0.5rem;
-  background: rgba(18, 50, 43, 0.04);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.45rem;
+  background: var(--surface-subtle);
 }
 
 .template-variables__header {
@@ -746,9 +739,9 @@ h2 {
   display: grid;
   gap: 0.85rem;
   padding: 1rem;
-  border: 1px dashed rgba(18, 50, 43, 0.18);
-  border-radius: 0.5rem;
-  background: rgba(18, 50, 43, 0.035);
+  border: 1px dashed rgba(37, 99, 235, 0.22);
+  border-radius: 0.45rem;
+  background: rgba(37, 99, 235, 0.045);
 }
 
 .reference-uploader p {
@@ -758,7 +751,7 @@ h2 {
 }
 
 .reference-uploader__error {
-  color: #9b3e30 !important;
+  color: var(--danger) !important;
   font-weight: 600;
 }
 
@@ -773,7 +766,7 @@ h2 {
   justify-content: center;
   min-height: 2.7rem;
   padding: 0.65rem 0.95rem;
-  border-radius: 0.5rem;
+  border-radius: 0.45rem;
   background: var(--ink-strong);
   color: #fff;
   font-weight: 700;
@@ -802,9 +795,9 @@ h2 {
 .reference-uploader__previews figure {
   overflow: hidden;
   margin: 0;
-  border: 1px solid rgba(18, 50, 43, 0.12);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.45rem;
+  background: #fff;
 }
 
 .reference-uploader__previews img {
@@ -832,7 +825,7 @@ h2 {
   border: 0;
   padding: 0;
   background: transparent;
-  color: #9b3e30;
+  color: var(--danger);
   font-weight: 700;
   text-align: left;
   cursor: pointer;
@@ -843,8 +836,8 @@ input,
 select {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid rgba(18, 50, 43, 0.14);
-  border-radius: 0.5rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.45rem;
   padding: 0.85rem 0.95rem;
   background: rgba(255, 255, 255, 0.9);
   color: var(--ink-strong);
@@ -864,8 +857,8 @@ textarea:focus,
 input:focus,
 select:focus {
   outline: none;
-  border-color: rgba(18, 50, 43, 0.3);
-  box-shadow: 0 0 0 0.2rem rgba(18, 50, 43, 0.08);
+  border-color: rgba(37, 99, 235, 0.42);
+  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.12);
 }
 
 .actions {
@@ -880,9 +873,9 @@ select:focus {
   justify-content: center;
   min-width: 8rem;
   padding: 0.85rem 1.2rem;
-  border-radius: 0.5rem;
+  border-radius: 0.45rem;
   border: 1px solid transparent;
-  background: linear-gradient(135deg, #12322b, #285d4f);
+  background: linear-gradient(135deg, #0f172a, #0f766e);
   color: #fff;
   font: inherit;
   font-weight: 700;
@@ -895,7 +888,7 @@ select:focus {
 
 .button:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 14px 24px rgba(18, 50, 43, 0.16);
+  box-shadow: 0 14px 24px rgba(15, 23, 42, 0.18);
 }
 
 .button:disabled {
@@ -904,9 +897,9 @@ select:focus {
 }
 
 .button--secondary {
-  background: rgba(18, 50, 43, 0.08);
+  background: var(--surface-subtle);
   color: var(--ink-strong);
-  border-color: rgba(18, 50, 43, 0.1);
+  border-color: var(--line-soft);
 }
 
 @media (max-width: 720px) {

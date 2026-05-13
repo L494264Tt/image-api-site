@@ -10,7 +10,6 @@ import type {
   PromptImproveRequest,
   PromptImproveResponse,
   PromptTemplateCopy,
-  ResponseFormat,
   UploadResponse,
 } from '../types/image'
 
@@ -42,7 +41,6 @@ const DEFAULT_SIZES = ['auto', '1024x1024', '1536x1024', '1024x1536']
 const DEFAULT_ASPECT_RATIOS = ['1:1', '3:2', '2:3', '16:9', '9:16']
 const DEFAULT_QUALITIES = ['auto', 'low', 'medium', 'high']
 const DEFAULT_STYLES = ['vivid', 'natural']
-const DEFAULT_RESPONSE_FORMATS: ResponseFormat[] = ['b64_json']
 const DEFAULT_BACKGROUNDS = ['auto', 'transparent', 'opaque']
 const DEFAULT_INPUT_FIDELITIES = ['auto', 'low', 'high']
 
@@ -73,7 +71,6 @@ export function createDefaultFrontendConfig(): FrontendConfig {
     aspectRatioOptions: DEFAULT_ASPECT_RATIOS,
     qualityOptions: DEFAULT_QUALITIES,
     styleOptions: DEFAULT_STYLES,
-    responseFormatOptions: DEFAULT_RESPONSE_FORMATS,
     backgroundOptions: DEFAULT_BACKGROUNDS,
     inputFidelityOptions: DEFAULT_INPUT_FIDELITIES,
     maxImages: 1,
@@ -84,9 +81,9 @@ export function createDefaultFrontendConfig(): FrontendConfig {
       qualities: DEFAULT_QUALITIES,
       backgrounds: DEFAULT_BACKGROUNDS,
       supports_text_to_image: true,
-      supports_image_to_image: model !== 'gpt-image-2',
+      supports_image_to_image: true,
       supports_image_input: true,
-      default_endpoint: model === 'gpt-image-2' ? 'responses' : 'images.edits',
+      default_endpoint: 'responses',
       input_fidelities: DEFAULT_INPUT_FIDELITIES,
       supports_transparent_background: true,
       estimated_seconds: 90,
@@ -127,10 +124,6 @@ export function mergeFrontendConfig(
     styleOptions: dedupeStrings(
       partialConfig.styleOptions?.length ? partialConfig.styleOptions : baseConfig.styleOptions,
     ),
-    responseFormatOptions:
-      partialConfig.responseFormatOptions?.length
-        ? partialConfig.responseFormatOptions
-        : baseConfig.responseFormatOptions,
     backgroundOptions: dedupeStrings(
       partialConfig.backgroundOptions?.length
         ? partialConfig.backgroundOptions
@@ -418,6 +411,14 @@ export const apiClient = {
     )
   },
 
+  async deleteGenerationJob(jobId: number): Promise<void> {
+    await requestJson(
+      `/images/generation-jobs/${jobId}`,
+      { method: 'DELETE' },
+      { auth: true },
+    )
+  },
+
   async improvePrompt(payload: PromptImproveRequest): Promise<PromptImproveResponse> {
     return requestJson<PromptImproveResponse>(
       '/prompts/improve',
@@ -593,12 +594,6 @@ function normalizeConfig(payload: unknown): Partial<FrontendConfig> {
       ...readStringArray(source.styleOptions),
       ...readStringArray(source.style_options),
     ]),
-    responseFormatOptions: normalizeResponseFormats(
-      dedupeStrings([
-        ...readStringArray(source.responseFormatOptions),
-        ...readStringArray(source.response_format_options),
-      ]),
-    ),
     backgroundOptions: dedupeStrings([
       ...readStringArray(source.backgroundOptions),
       ...readStringArray(source.background_options),
@@ -772,14 +767,6 @@ function extractModelIds(entry: unknown): string[] {
   const source = asRecord(entry)
   const id = readString(source?.id) || readString(source?.name) || readString(source?.model)
   return id ? [id] : []
-}
-
-function normalizeResponseFormats(values: string[]): ResponseFormat[] {
-  const normalized = values.filter(
-    (value): value is ResponseFormat => value === 'url' || value === 'b64_json',
-  )
-
-  return normalized.length ? normalized : DEFAULT_RESPONSE_FORMATS
 }
 
 function dedupeStrings(values: Array<string | undefined>): string[] {

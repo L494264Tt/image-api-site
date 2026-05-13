@@ -17,6 +17,7 @@ from app.model_capabilities import image_to_image_fallback_model
 from app.models.user import User
 from app.repositories.generation_jobs import count_active_generation_jobs_for_user, create_generation_job, get_generation_job_for_user
 from app.repositories.generation_jobs import cancel_generation_job, list_generation_jobs_for_user, retry_generation_job
+from app.repositories.generation_jobs import soft_delete_generation_job
 from app.repositories.image_generations import (
     create_image_generation,
     decode_tags,
@@ -241,6 +242,18 @@ def retry_job(
     if job is None:
         raise HTTPException(status_code=404, detail="Generation job not found or cannot be retried")
     return job_response_from_record(session, job)
+
+
+@router.delete("/generation-jobs/{job_id}", status_code=204)
+def delete_job(
+    job_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> Response:
+    job = soft_delete_generation_job(session, job_id=job_id, user_id=user.id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Generation job not found")
+    return Response(status_code=204)
 
 
 @router.post("/generations", response_model=ImageGenerationResponse)

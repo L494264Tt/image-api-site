@@ -37,14 +37,20 @@ def create_generation_job(
 
 
 def get_generation_job_for_user(session: Session, *, job_id: int, user_id: int) -> GenerationJob | None:
-    return session.scalar(select(GenerationJob).where(GenerationJob.id == job_id, GenerationJob.user_id == user_id))
+    return session.scalar(
+        select(GenerationJob).where(
+            GenerationJob.id == job_id,
+            GenerationJob.user_id == user_id,
+            GenerationJob.deleted_at.is_(None),
+        )
+    )
 
 
 def list_generation_jobs_for_user(session: Session, *, user_id: int, limit: int = 20) -> list[GenerationJob]:
     return list(
         session.scalars(
             select(GenerationJob)
-            .where(GenerationJob.user_id == user_id)
+            .where(GenerationJob.user_id == user_id, GenerationJob.deleted_at.is_(None))
             .order_by(GenerationJob.created_at.desc(), GenerationJob.id.desc())
             .limit(limit)
         )
@@ -55,7 +61,11 @@ def count_active_generation_jobs_for_user(session: Session, *, user_id: int) -> 
     return session.scalar(
         select(func.count())
         .select_from(GenerationJob)
-        .where(GenerationJob.user_id == user_id, GenerationJob.status.in_(("queued", "running")))
+        .where(
+            GenerationJob.user_id == user_id,
+            GenerationJob.deleted_at.is_(None),
+            GenerationJob.status.in_(("queued", "running")),
+        )
     ) or 0
 
 
@@ -90,10 +100,27 @@ def retry_generation_job(session: Session, *, job_id: int, user_id: int, max_att
     )
 
 
+def soft_delete_generation_job(session: Session, *, job_id: int, user_id: int) -> GenerationJob | None:
+    job = get_generation_job_for_user(session, job_id=job_id, user_id=user_id)
+    if job is None:
+        return None
+    now = datetime.now(timezone.utc)
+    if job.status in {"queued", "running"}:
+        job.status = "canceled"
+        job.progress_message = "已删除"
+        job.locked_by = None
+        job.locked_at = None
+        job.completed_at = now
+    job.deleted_at = now
+    session.commit()
+    session.refresh(job)
+    return job
+
+
 def acquire_next_queued_job(session: Session, *, worker_id: str) -> GenerationJob | None:
     job = session.scalar(
         select(GenerationJob)
-        .where(GenerationJob.status == "queued")
+        .where(GenerationJob.status == "queued", GenerationJob.deleted_at.is_(None))
         .order_by(GenerationJob.created_at.asc(), GenerationJob.id.asc())
         .with_for_update(skip_locked=True)
         .limit(1)
@@ -185,6 +212,7 @@ def fail_stale_running_jobs(session: Session, *, stale_after_seconds: int) -> in
         session.scalars(
             select(GenerationJob).where(
                 GenerationJob.status == "running",
+                GenerationJob.deleted_at.is_(None),
                 GenerationJob.locked_at.is_not(None),
                 GenerationJob.locked_at < cutoff,
             )

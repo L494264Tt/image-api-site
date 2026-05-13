@@ -68,8 +68,6 @@ async def get_config(settings: Settings = Depends(get_settings)) -> AppConfigRes
         styleOptions=["vivid", "natural"],
         backgroundOptions=DEFAULT_BACKGROUNDS,
         inputFidelityOptions=DEFAULT_INPUT_FIDELITIES,
-        supportedResponseFormats=["b64_json"],
-        responseFormatOptions=["b64_json"],
         maxImages=1,
         modelCapabilities=[
             ModelCapability(

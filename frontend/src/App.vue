@@ -64,9 +64,6 @@ let jobEventSource: EventSource | null = null
 const { persistActiveJob, getPersistedActiveJob, clearPersistedActiveJob } = useActiveJobStorage()
 
 const availableModels = computed(() => config.value.modelOptions)
-const modelLabels = computed(() =>
-  Object.fromEntries(config.value.modelCapabilities.map((capability) => [capability.id, capability.label || capability.id])),
-)
 const availableSizes = computed(() => config.value.sizeOptions)
 const hasMoreHistory = computed(() => historyItems.value.length < historyTotal.value)
 const signedIn = computed(() => currentUser.value !== null)
@@ -674,6 +671,17 @@ async function handleRetryJob(job: GenerationJobResponse): Promise<void> {
   startJobPolling(nextJob.id)
 }
 
+async function handleDeleteJob(job: GenerationJobResponse): Promise<void> {
+  await apiClient.deleteGenerationJob(job.id)
+  generationJobs.value = generationJobs.value.filter((item) => item.id !== job.id)
+  if (activeJob.value?.id === job.id) {
+    submitting.value = false
+    stopJobPolling()
+    clearPersistedActiveJob()
+    activeJob.value = null
+  }
+}
+
 function handleReusePrompt(item: HistoryRenderableImage): void {
   activeWorkspaceTab.value = 'generate'
   generationFormRef.value?.applyPrompt(item.prompt)
@@ -735,45 +743,50 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
           aria-label="工作台导航"
         />
 
-        <section v-show="activeWorkspaceTab === 'generate'" class="workspace-view">
-          <GenerationStatus
-            :health-state="healthState"
-            :status-message="statusMessage"
-            :loading-config="loadingConfig"
-            :submitting="submitting"
-            :error-message="errorMessage"
-            :result-count="resultCount"
-            :copy="copy.status"
-          />
+        <section v-show="activeWorkspaceTab === 'generate'" class="workspace-view workspace-view--generate">
+          <div class="workspace-main">
+            <ImageGenerationForm
+              ref="generationFormRef"
+              :busy="submitting"
+              :config="config"
+              :available-models="availableModels"
+              :prompt-templates="promptTemplates.length ? promptTemplates : copy.form.promptTemplates"
+              :copy="copy.form"
+              @create-template="handleCreatePromptTemplate"
+              @toggle-template-favorite="handleTogglePromptTemplateFavorite"
+              @submit="handleGenerate"
+            />
 
-          <ImageGenerationForm
-            ref="generationFormRef"
-            :busy="submitting"
-            :config="config"
-            :available-models="availableModels"
-            :prompt-templates="promptTemplates.length ? promptTemplates : copy.form.promptTemplates"
-            :copy="copy.form"
-            @create-template="handleCreatePromptTemplate"
-            @toggle-template-favorite="handleTogglePromptTemplateFavorite"
-            @submit="handleGenerate"
-          />
+            <GenerationResults
+              :items="results"
+              :busy="submitting"
+              :generated-at-label="generatedAtLabel"
+              :last-prompt="lastPrompt"
+              :copy="copy.results"
+            />
+          </div>
 
-          <GenerationResults
-            :items="results"
-            :busy="submitting"
-            :generated-at-label="generatedAtLabel"
-            :last-prompt="lastPrompt"
-            :copy="copy.results"
-          />
+          <aside class="workspace-sidebar">
+            <GenerationStatus
+              :health-state="healthState"
+              :status-message="statusMessage"
+              :loading-config="loadingConfig"
+              :submitting="submitting"
+              :error-message="errorMessage"
+              :result-count="resultCount"
+              :copy="copy.status"
+            />
 
-          <TaskCenter
-            :jobs="generationJobs"
-            :busy="taskLoading"
-            :format-date-time="formatDateTime"
-            @refresh="refreshGenerationJobs"
-            @cancel="handleCancelJob"
-            @retry="handleRetryJob"
-          />
+            <TaskCenter
+              :jobs="generationJobs"
+              :busy="taskLoading"
+              :format-date-time="formatDateTime"
+              @refresh="refreshGenerationJobs"
+              @cancel="handleCancelJob"
+              @retry="handleRetryJob"
+              @delete="handleDeleteJob"
+            />
+          </aside>
         </section>
 
         <section v-show="activeWorkspaceTab === 'history'" class="workspace-view">
@@ -784,7 +797,6 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
             :total="historyTotal"
             :has-more="hasMoreHistory"
             :available-models="availableModels"
-            :model-labels="modelLabels"
             :available-sizes="availableSizes"
             :format-date-time="formatDateTime"
             :copy="copy.history"
@@ -817,17 +829,40 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
 .app-shell {
   position: relative;
   min-height: 100vh;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .page {
   position: relative;
   z-index: 1;
-  width: min(1240px, calc(100% - 2rem));
+  width: min(1440px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 0 0 3rem;
+  padding: 0 0 3.5rem;
+  display: grid;
+  gap: 1.1rem;
+}
+
+.workspace-view {
+  min-width: 0;
+}
+
+.workspace-view--generate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.38fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.workspace-main,
+.workspace-sidebar {
+  min-width: 0;
   display: grid;
   gap: 1rem;
+}
+
+.workspace-sidebar {
+  position: sticky;
+  top: 5.5rem;
 }
 
 .login-page {
@@ -850,8 +885,9 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
   min-height: 2.7rem;
   padding: 0.7rem 1rem;
   border: 1px solid var(--line-strong);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.68);
+  border-radius: 0.45rem;
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-card);
   color: var(--ink-muted);
   font-size: 0.92rem;
 }
@@ -860,16 +896,33 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
   width: 0.6rem;
   height: 0.6rem;
   border-radius: 999px;
-  background: #b78d48;
+  background: var(--accent-warm);
   flex: 0 0 auto;
 }
 
 .login-page__dot--ready {
-  background: #2f8c66;
+  background: var(--accent-strong);
 }
 
 .login-page__dot--offline {
-  background: #b74a3d;
+  background: var(--danger);
 }
 
+@media (max-width: 1080px) {
+  .workspace-view--generate {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-sidebar {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    width: min(100% - 1rem, 1440px);
+    gap: 0.8rem;
+    padding-bottom: 2rem;
+  }
+}
 </style>

@@ -80,10 +80,10 @@ function submitForm(): void {
   display: grid;
   gap: 1.4rem;
   padding: clamp(1.25rem, 2.4vw, 2rem);
-  border-radius: 0.5rem;
-  border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 10px 28px rgba(42, 38, 31, 0.08);
+  border-radius: 0.65rem;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-card);
 }
 
 .auth-panel__header {
@@ -97,6 +97,7 @@ function submitForm(): void {
   letter-spacing: 0.18em;
   font-size: 0.74rem;
   color: var(--accent-strong);
+  font-weight: 800;
 }
 
 h2 {
@@ -132,23 +133,23 @@ input {
   width: 100%;
   min-height: 3rem;
   padding: 0.8rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(18, 50, 43, 0.14);
-  background: rgba(255, 255, 255, 0.9);
+  border-radius: 0.45rem;
+  border: 1px solid var(--line-strong);
+  background: #fff;
   color: var(--ink-strong);
 }
 
 input:focus {
-  outline: 2px solid rgba(155, 99, 48, 0.22);
+  outline: 2px solid rgba(37, 99, 235, 0.22);
   outline-offset: 1px;
 }
 
 .auth-form__error {
   padding: 0.9rem 1rem;
-  border-radius: 0.5rem;
-  background: rgba(172, 55, 43, 0.1);
-  border: 1px solid rgba(172, 55, 43, 0.16);
-  color: #8d2a20;
+  border-radius: 0.45rem;
+  background: rgba(185, 28, 28, 0.08);
+  border: 1px solid rgba(185, 28, 28, 0.16);
+  color: var(--danger);
 }
 
 .auth-form__hint {
@@ -162,8 +163,8 @@ input:focus {
   min-height: 3rem;
   padding: 0.7rem 1.2rem;
   border: 0;
-  border-radius: 0.5rem;
-  background: var(--ink-strong);
+  border-radius: 0.45rem;
+  background: linear-gradient(135deg, #0f172a, #0f766e);
   color: #fff;
   font-weight: 700;
   cursor: pointer;
@@ -174,7 +175,7 @@ input:focus {
 
 .auth-form__submit:hover:enabled {
   transform: translateY(-1px);
-  box-shadow: 0 12px 22px rgba(18, 50, 43, 0.16);
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.16);
 }
 
 .auth-form__submit:disabled {

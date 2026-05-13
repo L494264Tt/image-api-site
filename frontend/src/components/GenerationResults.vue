@@ -65,10 +65,10 @@ defineProps<{
   display: grid;
   gap: 1.25rem;
   padding: clamp(1.15rem, 2vw, 1.8rem);
-  border-radius: 0.5rem;
-  border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: var(--shadow-soft);
+  border-radius: 0.55rem;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-card);
 }
 
 .results-panel__header {
@@ -84,6 +84,7 @@ defineProps<{
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent-strong);
+  font-weight: 800;
 }
 
 h2 {
@@ -105,10 +106,10 @@ h2 {
   gap: 0.45rem;
   min-height: 240px;
   padding: 1.2rem;
-  border-radius: 0.5rem;
-  border: 1px dashed rgba(18, 50, 43, 0.16);
+  border-radius: 0.55rem;
+  border: 1px dashed rgba(37, 99, 235, 0.22);
   text-align: center;
-  background: rgba(255, 255, 255, 0.52);
+  background: rgba(37, 99, 235, 0.04);
 }
 
 .results-panel__empty strong {
@@ -129,14 +130,15 @@ h2 {
 
 .result-card {
   overflow: hidden;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(18, 50, 43, 0.12);
-  background: rgba(255, 255, 255, 0.88);
+  border-radius: 0.55rem;
+  border: 1px solid var(--line-soft);
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 .result-card__media {
   aspect-ratio: 1 / 1;
-  background: linear-gradient(160deg, rgba(18, 50, 43, 0.12), rgba(200, 170, 112, 0.2));
+  background: linear-gradient(160deg, rgba(37, 99, 235, 0.12), rgba(15, 118, 110, 0.12));
 }
 
 .result-card__media img {
@@ -164,15 +166,15 @@ h2 {
   align-items: center;
   justify-content: center;
   padding: 0.35rem 0.7rem;
-  border-radius: 0.5rem;
-  background: rgba(18, 50, 43, 0.1);
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.1);
   color: var(--ink-strong);
   font-size: 0.82rem;
   font-weight: 600;
 }
 
 .pill--muted {
-  background: rgba(18, 50, 43, 0.06);
+  background: rgba(15, 23, 42, 0.06);
   color: var(--ink-soft);
 }
 
@@ -188,7 +190,7 @@ h2 {
   justify-content: center;
   min-width: 6.2rem;
   padding: 0.72rem 1rem;
-  border-radius: 0.5rem;
+  border-radius: 0.45rem;
   border: 1px solid transparent;
   background: var(--ink-strong);
   color: #fff;
@@ -202,13 +204,13 @@ h2 {
 
 .button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 18px rgba(18, 50, 43, 0.16);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.16);
 }
 
 .button--ghost {
-  background: rgba(18, 50, 43, 0.08);
+  background: var(--surface-subtle);
   color: var(--ink-strong);
-  border-color: rgba(18, 50, 43, 0.1);
+  border-color: var(--line-soft);
 }
 
 @media (max-width: 720px) {

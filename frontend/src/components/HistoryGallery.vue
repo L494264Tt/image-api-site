@@ -9,7 +9,6 @@ const props = defineProps<{
   total: number
   hasMore: boolean
   availableModels: string[]
-  modelLabels: Record<string, string>
   availableSizes: string[]
   formatDateTime: (value: string) => string
   copy: HistoryCopy
@@ -88,10 +87,6 @@ function toggleSelectionMode(): void {
     selectedIds.value = []
   }
 }
-
-function modelLabel(model: string): string {
-  return props.modelLabels[model] || model
-}
 </script>
 
 <template>
@@ -127,7 +122,7 @@ function modelLabel(model: string): string {
       <input v-model="filters.search" type="search" placeholder="搜索提示词" />
       <select v-model="filters.model">
         <option value="">全部模型</option>
-        <option v-for="model in availableModels" :key="model" :value="model">{{ modelLabel(model) }}</option>
+        <option v-for="model in availableModels" :key="model" :value="model">{{ model }}</option>
       </select>
       <select v-model="filters.size">
         <option value="">全部尺寸</option>
@@ -191,6 +186,7 @@ function modelLabel(model: string): string {
             <button class="history-card__quick" type="button" @click="emit('downloadImage', item)">下载</button>
             <button class="history-card__quick" type="button" @click="emit('reusePrompt', item)">复用</button>
             <button class="history-card__quick" type="button" @click="emit('editFromImage', item)">再编辑</button>
+            <button class="history-card__quick history-card__quick--danger" type="button" @click="emit('deleteImages', [item.recordId])">删除</button>
           </div>
         </div>
 
@@ -203,7 +199,7 @@ function modelLabel(model: string): string {
           </div>
 
           <div class="history-card__meta">
-            <span>{{ modelLabel(item.model) }}</span>
+            <span>{{ item.model }}</span>
             <span>{{ item.size }}</span>
             <span>{{ formatDateTime(item.createdAt) }}</span>
             <span v-if="item.project">项目 {{ item.project }}</span>
@@ -221,6 +217,7 @@ function modelLabel(model: string): string {
               {{ item.isFavorite ? '取消收藏' : '收藏' }}
             </button>
             <button class="button button--ghost" type="button" @click="emit('openImage', item)">{{ copy.open }}</button>
+            <button class="button button--ghost" type="button" @click="emit('deleteImages', [item.recordId])">删除</button>
             <button class="button" type="button" @click="emit('downloadImage', item)">{{ copy.download }}</button>
           </div>
         </div>
@@ -251,8 +248,8 @@ function modelLabel(model: string): string {
           </section>
 
           <dl class="image-modal__meta">
-            <div><dt>{{ copy.model }}</dt><dd>{{ modelLabel(previewItem.model) }}</dd></div>
-            <div v-if="previewItem.requestedModel"><dt>请求模型</dt><dd>{{ modelLabel(previewItem.requestedModel) }}</dd></div>
+            <div><dt>{{ copy.model }}</dt><dd>{{ previewItem.model }}</dd></div>
+            <div v-if="previewItem.requestedModel"><dt>请求模型</dt><dd>{{ previewItem.requestedModel }}</dd></div>
             <div v-if="previewItem.endpointType"><dt>端点类型</dt><dd>{{ previewItem.endpointType }}</dd></div>
             <div><dt>{{ copy.size }}</dt><dd>{{ previewItem.size }}</dd></div>
             <div v-if="previewItem.project"><dt>项目</dt><dd>{{ previewItem.project }}</dd></div>
@@ -269,6 +266,7 @@ function modelLabel(model: string): string {
           <div class="image-modal__actions">
             <button class="button button--ghost" type="button" @click="emit('reusePrompt', previewItem)">复用提示词</button>
             <button class="button button--ghost" type="button" @click="emit('editFromImage', previewItem)">基于此图再改</button>
+            <button class="button button--ghost" type="button" @click="emit('deleteImages', [previewItem.recordId]); previewItem = null">删除</button>
             <button class="button" type="button" @click="emit('downloadImage', previewItem)">{{ copy.download }}</button>
           </div>
         </div>
@@ -282,10 +280,10 @@ function modelLabel(model: string): string {
   display: grid;
   gap: 1rem;
   padding: clamp(1rem, 1.8vw, 1.4rem);
-  border-radius: 0.5rem;
-  border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: var(--shadow-soft);
+  border-radius: 0.55rem;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-card);
 }
 
 .history-panel__header {
@@ -301,6 +299,7 @@ function modelLabel(model: string): string {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent-strong);
+  font-weight: 800;
 }
 
 h2 {
@@ -324,9 +323,9 @@ h2 {
 .history-panel__refresh {
   min-height: 2.8rem;
   padding: 0.65rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(18, 50, 43, 0.12);
-  background: rgba(18, 50, 43, 0.06);
+  border-radius: 0.45rem;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-subtle);
   color: var(--ink-strong);
   font-weight: 600;
   cursor: pointer;
@@ -335,8 +334,8 @@ h2 {
 .history-panel__mode {
   min-height: 2.8rem;
   padding: 0.65rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(18, 50, 43, 0.18);
+  border-radius: 0.45rem;
+  border: 1px solid var(--line-soft);
   background: #fff;
   color: var(--ink-strong);
   font-weight: 700;
@@ -344,9 +343,9 @@ h2 {
 }
 
 .history-panel__mode--active {
-  border-color: rgba(37, 99, 235, 0.35);
+  border-color: rgba(37, 99, 235, 0.3);
   background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
+  color: var(--accent-blue);
 }
 
 .history-panel__refresh:disabled,
@@ -359,9 +358,9 @@ h2 {
   justify-self: center;
   min-height: 2.8rem;
   padding: 0.65rem 1.25rem;
-  border: 1px solid rgba(18, 50, 43, 0.12);
-  border-radius: 0.5rem;
-  background: rgba(18, 50, 43, 0.06);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.45rem;
+  background: var(--surface-subtle);
   color: var(--ink-strong);
   font-weight: 700;
   cursor: pointer;
@@ -369,18 +368,22 @@ h2 {
 
 .history-filters {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(140px, 0.4fr) minmax(140px, 0.4fr) auto minmax(130px, 0.35fr) minmax(130px, 0.35fr) auto;
+  grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(140px, 0.4fr)) auto repeat(2, minmax(130px, 0.35fr)) auto;
   gap: 0.7rem;
   align-items: center;
+  padding: 0.75rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 0.55rem;
+  background: var(--surface-subtle);
 }
 
 .history-filters input,
 .history-filters select {
   min-height: 2.7rem;
   padding: 0.65rem 0.75rem;
-  border: 1px solid rgba(18, 50, 43, 0.12);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.45rem;
+  background: #fff;
   color: var(--ink-strong);
 }
 
@@ -395,10 +398,10 @@ h2 {
 .history-panel__error {
   margin: 0;
   padding: 0.95rem 1rem;
-  border-radius: 0.5rem;
-  background: rgba(172, 55, 43, 0.1);
-  color: #8d2a20;
-  border: 1px solid rgba(172, 55, 43, 0.2);
+  border-radius: 0.45rem;
+  background: rgba(185, 28, 28, 0.08);
+  color: var(--danger);
+  border: 1px solid rgba(185, 28, 28, 0.16);
 }
 
 .history-bulkbar {
@@ -407,7 +410,7 @@ h2 {
   gap: 1rem;
   align-items: center;
   padding: 0.85rem 1rem;
-  border-radius: 0.5rem;
+  border-radius: 0.55rem;
   border: 1px solid rgba(37, 99, 235, 0.18);
   background: rgba(37, 99, 235, 0.08);
 }
@@ -438,10 +441,10 @@ h2 {
   gap: 0.45rem;
   min-height: 240px;
   padding: 1.2rem;
-  border-radius: 0.5rem;
-  border: 1px dashed rgba(18, 50, 43, 0.16);
+  border-radius: 0.55rem;
+  border: 1px dashed rgba(37, 99, 235, 0.22);
   text-align: center;
-  background: rgba(255, 255, 255, 0.52);
+  background: rgba(37, 99, 235, 0.04);
 }
 
 .history-panel__empty strong {
@@ -463,9 +466,9 @@ h2 {
 .history-card {
   position: relative;
   overflow: hidden;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(18, 50, 43, 0.12);
-  background: rgba(255, 255, 255, 0.88);
+  border-radius: 0.55rem;
+  border: 1px solid var(--line-soft);
+  background: #fff;
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease,
@@ -474,8 +477,8 @@ h2 {
 
 .history-card:hover,
 .history-card:focus-within {
-  border-color: rgba(18, 50, 43, 0.24);
-  box-shadow: 0 18px 42px rgba(18, 50, 43, 0.14);
+  border-color: rgba(37, 99, 235, 0.22);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
   transform: translateY(-2px);
 }
 
@@ -560,6 +563,10 @@ h2 {
   cursor: pointer;
 }
 
+.history-card__quick--danger {
+  color: var(--danger);
+}
+
 .history-card__body {
   display: grid;
   gap: 0.55rem;
@@ -607,7 +614,7 @@ h2 {
 .history-card__meta span {
   padding: 0.2rem 0.45rem;
   border-radius: 999px;
-  background: rgba(18, 50, 43, 0.06);
+  background: rgba(15, 23, 42, 0.06);
 }
 
 .history-card__tags {
@@ -619,8 +626,8 @@ h2 {
 .history-card__tags span {
   padding: 0.18rem 0.45rem;
   border-radius: 999px;
-  background: rgba(18, 50, 43, 0.07);
-  color: var(--accent-strong);
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--accent-blue);
   font-size: 0.76rem;
   font-weight: 700;
 }
@@ -631,7 +638,7 @@ h2 {
   border-radius: 999px;
   border: 1px solid rgba(18, 50, 43, 0.1);
   background: rgba(255, 255, 255, 0.92);
-  color: #b45309;
+  color: var(--accent-warm);
   font-size: 1.05rem;
   cursor: pointer;
 }
@@ -648,7 +655,7 @@ h2 {
   justify-content: center;
   min-width: auto;
   padding: 0.45rem 0.55rem;
-  border-radius: 0.5rem;
+  border-radius: 0.45rem;
   border: 1px solid transparent;
   background: var(--ink-strong);
   color: #fff;
@@ -659,15 +666,15 @@ h2 {
 }
 
 .button--ghost {
-  background: rgba(18, 50, 43, 0.08);
+  background: var(--surface-subtle);
   color: var(--ink-strong);
-  border-color: rgba(18, 50, 43, 0.1);
+  border-color: var(--line-soft);
 }
 
 .button--danger {
-  background: rgba(172, 55, 43, 0.1);
-  color: #8d2a20;
-  border-color: rgba(172, 55, 43, 0.2);
+  background: rgba(185, 28, 28, 0.08);
+  color: var(--danger);
+  border-color: rgba(185, 28, 28, 0.16);
 }
 
 .image-modal {

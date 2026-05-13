@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 
 SupportedSize = Literal["auto", "1024x1024", "1024x1536", "1536x1024"]
 GenerationJobStatus = Literal["queued", "running", "succeeded", "failed", "canceled"]
-SupportedResponseFormat = Literal["url", "b64_json"]
 SupportedQuality = Literal["auto", "low", "medium", "high"]
 SupportedStyle = Literal["vivid", "natural"]
 SupportedBackground = Literal["auto", "transparent", "opaque"]
@@ -25,10 +24,9 @@ class ImageGenerationRequest(BaseModel):
     negative_prompt: str | None = Field(default=None, max_length=2000)
     model: str | None = Field(default=None, max_length=120)
     size: SupportedSize = "1024x1024"
-    n: int = Field(default=1, ge=1, le=4)
+    n: Literal[1] = 1
     quality: SupportedQuality | None = None
     style: SupportedStyle | None = None
-    response_format: SupportedResponseFormat = "url"
     background: SupportedBackground | None = None
     input_fidelity: SupportedInputFidelity | None = None
     reference_images: list[ReferenceImageInput] = Field(default_factory=list, max_length=4)
@@ -118,8 +116,6 @@ class AppConfigResponse(BaseModel):
     styleOptions: list[SupportedStyle]
     backgroundOptions: list[SupportedBackground]
     inputFidelityOptions: list[SupportedInputFidelity]
-    supportedResponseFormats: list[SupportedResponseFormat]
-    responseFormatOptions: list[SupportedResponseFormat]
     maxImages: int
     modelCapabilities: list[ModelCapability]
 

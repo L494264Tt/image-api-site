@@ -31,15 +31,19 @@ const model = defineModel<WorkspaceTabItem['id']>({ required: true })
 
 <style scoped>
 .workspace-tabs {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 15;
   display: inline-flex;
   width: fit-content;
   max-width: 100%;
   gap: 0.25rem;
   padding: 0.25rem;
-  border: 1px solid var(--line-strong);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+  backdrop-filter: blur(14px);
   overflow-x: auto;
 }
 
@@ -61,23 +65,35 @@ const model = defineModel<WorkspaceTabItem['id']>({ required: true })
 
 .workspace-tabs__item:hover {
   color: var(--ink-strong);
-  background: rgba(18, 50, 43, 0.06);
+  background: rgba(15, 23, 42, 0.05);
 }
 
 .workspace-tabs__item--active {
-  color: var(--ink-strong);
-  background: #fff;
-  box-shadow: 0 8px 18px rgba(18, 50, 43, 0.08);
+  color: #fff;
+  background: var(--ink-strong);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
 }
 
 .workspace-tabs__badge {
   min-width: 1.45rem;
   padding: 0.1rem 0.4rem;
   border-radius: 999px;
-  background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--accent-blue);
   font-size: 0.75rem;
   line-height: 1.4;
   text-align: center;
+}
+
+.workspace-tabs__item--active .workspace-tabs__badge {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+@media (max-width: 720px) {
+  .workspace-tabs {
+    top: 0.5rem;
+    width: 100%;
+  }
 }
 </style>

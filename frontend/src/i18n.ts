@@ -54,7 +54,6 @@ export const messages: Record<Locale, AppCopy> = {
       aspectRatio: '宽高比',
       quality: '质量',
       style: '风格',
-      responseFormat: '返回格式',
       background: '背景',
       referenceImages: '参考图 / 图生图',
       referenceImagesHint: '上传 PNG、JPEG 或 WebP，模型会参考图片内容并按提示词进行改图；最多 4 张，每张不超过 10MB。',
@@ -83,10 +82,6 @@ export const messages: Record<Locale, AppCopy> = {
         style: {
           vivid: '鲜明',
           natural: '自然',
-        },
-        responseFormat: {
-          url: '图片链接',
-          b64_json: 'Base64',
         },
         background: {
           auto: '自动',
@@ -237,7 +232,6 @@ export const messages: Record<Locale, AppCopy> = {
       aspectRatio: 'Aspect ratio',
       quality: 'Quality',
       style: 'Style',
-      responseFormat: 'Response format',
       background: 'Background',
       referenceImages: 'Reference images / image editing',
       referenceImagesHint: 'Upload PNG, JPEG, or WebP images. The model will use them as visual references and edit by prompt. Up to 4 images, 10MB each.',
@@ -266,10 +260,6 @@ export const messages: Record<Locale, AppCopy> = {
         style: {
           vivid: 'vivid',
           natural: 'natural',
-        },
-        responseFormat: {
-          url: 'URL',
-          b64_json: 'Base64',
         },
         background: {
           auto: 'auto',

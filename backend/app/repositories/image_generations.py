@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.models.generation_job import GenerationJob
 from app.models.image_generation import ImageGeneration
 
 TAG_SEPARATOR = "\n"
@@ -188,5 +189,14 @@ def soft_delete_images_for_user(session: Session, *, image_ids: list[int], user_
     now = datetime.now(timezone.utc)
     for item in items:
         item.deleted_at = now
+    deleted_ids = [item.id for item in items]
+    for job in session.scalars(
+        select(GenerationJob).where(
+            GenerationJob.user_id == user_id,
+            GenerationJob.image_generation_id.in_(deleted_ids),
+            GenerationJob.deleted_at.is_(None),
+        )
+    ):
+        job.deleted_at = now
     session.commit()
     return len(items)

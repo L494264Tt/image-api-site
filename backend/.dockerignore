@@ -1,0 +1,12 @@
+.git
+.pytest_cache
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+**/*.pyc
+.DS_Store
+**/.DS_Store
+._*
+**/._*
+test_image_api_site.db

@@ -68,14 +68,14 @@ const headline = computed(() => {
 <style scoped>
 .status-card {
   display: grid;
-  grid-template-columns: minmax(180px, auto) minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
   gap: 0.9rem;
-  align-items: center;
-  padding: 0.85rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 8px 22px rgba(66, 52, 33, 0.06);
+  align-items: stretch;
+  padding: 1rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-card);
 }
 
 .status-card__badge {
@@ -84,8 +84,8 @@ const headline = computed(() => {
   gap: 0.65rem;
   width: fit-content;
   padding: 0.55rem 0.85rem;
-  border-radius: 0.5rem;
-  background: rgba(18, 50, 43, 0.08);
+  border-radius: 0.45rem;
+  background: var(--surface-subtle);
   color: var(--ink-strong);
   font-size: 0.88rem;
   font-weight: 600;
@@ -96,7 +96,7 @@ const headline = computed(() => {
   height: 0.7rem;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 0 0.2rem rgba(18, 50, 43, 0.14);
+  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.12);
 }
 
 .status-card__message {
@@ -105,13 +105,12 @@ const headline = computed(() => {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .status-card__facts {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 0.5rem;
 }
 
@@ -120,9 +119,10 @@ const headline = computed(() => {
   gap: 0.35rem;
   align-items: center;
   padding: 0.45rem 0.6rem;
-  border: 1px solid rgba(18, 50, 43, 0.08);
-  border-radius: 0.5rem;
-  background: rgba(18, 50, 43, 0.04);
+  justify-content: space-between;
+  border: 1px solid var(--line-soft);
+  border-radius: 0.45rem;
+  background: var(--surface-subtle);
 }
 
 .fact__label {
@@ -139,36 +139,33 @@ strong {
   grid-column: 1 / -1;
   margin: 0;
   padding: 0.65rem 0.8rem;
-  border-radius: 0.5rem;
-  background: rgba(172, 55, 43, 0.1);
-  color: #8d2a20;
-  border: 1px solid rgba(172, 55, 43, 0.2);
+  border-radius: 0.45rem;
+  background: rgba(185, 28, 28, 0.08);
+  color: var(--danger);
+  border: 1px solid rgba(185, 28, 28, 0.16);
 }
 
 .status-card--ready {
-  color: #1f6b58;
+  color: var(--accent-strong);
 }
 
 .status-card--degraded {
-  color: #9b642a;
+  color: var(--accent-warm);
 }
 
 .status-card--offline {
-  color: #a33c30;
+  color: var(--danger);
 }
 
 @media (max-width: 920px) {
-  .status-card {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  .status-card__message {
-    white-space: normal;
-  }
-
   .status-card__facts {
-    justify-content: flex-start;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .status-card__facts {
+    grid-template-columns: 1fr;
   }
 }
 </style>

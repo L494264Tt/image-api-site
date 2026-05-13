@@ -44,7 +44,22 @@ class OpenAIImageService:
                 {"role": "system", "content": instructions},
                 {"role": "user", "content": user_text},
             ],
-            "text": {"format": {"type": "json_object"}},
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "prompt_improvement",
+                    "schema": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "prompt": {"type": "string"},
+                            "negative_prompt": {"type": ["string", "null"]},
+                        },
+                        "required": ["prompt", "negative_prompt"],
+                    },
+                    "strict": True,
+                }
+            },
         }
 
         try:
@@ -166,6 +181,10 @@ class OpenAIImageService:
         }
         if request.quality and request.quality != "auto":
             data["quality"] = request.quality
+        if request.background and request.background != "auto":
+            data["background"] = request.background
+        if request.input_fidelity and request.input_fidelity != "auto":
+            data["input_fidelity"] = request.input_fidelity
         if request.n:
             data["n"] = str(request.n)
         return data

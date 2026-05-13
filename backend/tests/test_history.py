@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.repositories.generation_jobs import create_generation_job, get_generation_job_for_user, mark_job_succeeded
 from app.repositories.image_generations import create_image_generation
 from app.repositories.users import get_user_by_username
 
@@ -86,3 +87,53 @@ def test_history_returns_and_filters_asset_organization_fields() -> None:
     assert project_response.status_code == 200
     project_items = project_response.json()["items"]
     assert [item["id"] for item in project_items] == [other.id]
+
+
+def test_bulk_delete_removes_history_and_associated_generation_job() -> None:
+    from app.config import get_settings
+    from app.db.session import get_session_factory
+
+    client = TestClient(app)
+    token = get_token(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    image = seed_history_image("A product render to delete")
+
+    session = get_session_factory(get_settings())()
+    try:
+        user = get_user_by_username(session, "admin")
+        assert user is not None
+        job = create_generation_job(
+            session,
+            user_id=user.id,
+            prompt=image.prompt,
+            negative_prompt=None,
+            model=image.model,
+            size=image.size,
+            quality=image.quality,
+            request_payload={"prompt": image.prompt, "model": image.model, "size": image.size},
+        )
+        job_id = job.id
+        mark_job_succeeded(session, job, image_generation_id=image.id)
+    finally:
+        session.close()
+
+    delete_response = client.post("/api/images/bulk-delete", headers=headers, json={"image_ids": [image.id]})
+
+    assert delete_response.status_code == 200
+    assert delete_response.json()["deleted"] == 1
+
+    history_response = client.get("/api/images/history", headers=headers)
+    assert history_response.status_code == 200
+    assert history_response.json()["items"] == []
+
+    jobs_response = client.get("/api/images/generation-jobs", headers=headers)
+    assert jobs_response.status_code == 200
+    assert all(item["id"] != job_id for item in jobs_response.json())
+
+    session = get_session_factory(get_settings())()
+    try:
+        user = get_user_by_username(session, "admin")
+        assert user is not None
+        assert get_generation_job_for_user(session, job_id=job_id, user_id=user.id) is None
+    finally:
+        session.close()

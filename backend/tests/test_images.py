@@ -10,6 +10,7 @@ from app.db.session import get_session_factory
 from app.main import app
 from app.repositories.generation_jobs import create_generation_job
 from app.repositories.users import create_user
+from app.services.generation_runner import run_generation_job
 from app.services.auth import hash_password
 from app.services.openai_images import OpenAIImageService
 
@@ -23,9 +24,9 @@ def test_get_config_returns_frontend_bootstrap_data() -> None:
     assert response.json()["siteName"] == "Image API Site Backend Test"
     assert "1024x1024" in response.json()["supportedSizes"]
     assert response.json()["styleOptions"] == ["vivid", "natural"]
-    assert response.json()["responseFormatOptions"] == ["b64_json"]
     assert response.json()["inputFidelityOptions"] == ["auto", "low", "high"]
     assert response.json()["maxImages"] == 1
+    assert response.json()["modelCapabilities"][0]["supports_image_to_image"] is True
 
 
 def test_get_models_returns_backend_defined_model() -> None:
@@ -56,7 +57,6 @@ def test_post_images_generations_proxies_upstream_response() -> None:
         "n": 1,
         "quality": "high",
         "style": "vivid",
-        "response_format": "b64_json",
     }
 
     mocked_response = {
@@ -136,6 +136,31 @@ def test_build_responses_payload_includes_reference_images() -> None:
     assert payload["tools"][0]["action"] == "edit"
 
 
+def test_build_edit_form_data_includes_edit_options() -> None:
+    service = OpenAIImageService(get_settings())
+
+    form_data = service._build_edit_form_data(
+        service_request(
+            prompt="Keep the product, change the background to a marble studio",
+            quality="high",
+            background="transparent",
+            input_fidelity="high",
+            reference_images=[
+                {
+                    "data_url": "data:image/png;base64,ZmFrZQ==",
+                    "mime_type": "image/png",
+                    "name": "product.png",
+                }
+            ],
+        )
+    )
+
+    assert form_data["model"] == "gpt-image-2"
+    assert form_data["quality"] == "high"
+    assert form_data["background"] == "transparent"
+    assert form_data["input_fidelity"] == "high"
+
+
 def test_parse_responses_stream_extracts_image_generation_result() -> None:
     service = OpenAIImageService(get_settings())
     body = "\n".join(
@@ -170,7 +195,6 @@ def test_generated_image_is_saved_to_history() -> None:
         "prompt": "A cinematic fox in a snowy forest",
         "model": "gpt-image-2",
         "size": "1024x1024",
-        "response_format": "b64_json",
     }
     mocked_response = {
         "created": 1234567890,
@@ -198,6 +222,19 @@ def test_generated_image_is_saved_to_history() -> None:
     items = history_response.json()["items"]
     assert len(items) == 1
     assert items[0]["prompt"] == payload["prompt"]
+
+
+def test_generations_rejects_multiple_images_until_persistence_supports_them() -> None:
+    client = TestClient(app)
+    token = client.post("/api/auth/login", json={"username": "admin", "password": "StrongTestAdminPass123!"}).json()["access_token"]
+
+    response = client.post(
+        "/api/images/generations",
+        json={"prompt": "A cinematic fox in a snowy forest", "size": "1024x1024", "n": 2},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_generation_job_rejects_inline_reference_image_data_url() -> None:
@@ -311,9 +348,90 @@ def test_generation_job_events_token_is_user_scoped() -> None:
     assert response.status_code == 404
 
 
+def test_generation_job_with_reference_keeps_gpt_image_2_model() -> None:
+    client = TestClient(app)
+    settings = get_settings()
+    session = get_session_factory(settings)()
+    try:
+        user = create_user(
+            session,
+            username="reference-owner",
+            password_hash=hash_password("StrongOwnerPass123!"),
+            role="user",
+        )
+        job = create_generation_job(
+            session,
+            user_id=user.id,
+            prompt="Edit this product",
+            negative_prompt=None,
+            model="gpt-image-2",
+            size="1024x1024",
+            quality=None,
+            request_payload={
+                "prompt": "Edit this product",
+                "model": "gpt-image-2",
+                "size": "1024x1024",
+                "reference_images": [{"data_url": "data:image/png;base64,ZmFrZQ=="}],
+            },
+        )
+        with patch(
+            "app.services.generation_runner.OpenAIImageService.generate_image",
+            new=AsyncMock(side_effect=RuntimeError("stop before storage")),
+        ):
+            asyncio.run(run_generation_job(session=session, job=job, settings=settings))
+            session.refresh(job)
+            assert job.effective_model == "gpt-image-2"
+            assert job.endpoint_type == "images.edits"
+    finally:
+        session.close()
+
+
+def test_delete_generation_job_soft_deletes_and_hides_job() -> None:
+    client = TestClient(app)
+    settings = get_settings()
+    session = get_session_factory(settings)()
+    try:
+        user = create_user(
+            session,
+            username="job-owner",
+            password_hash=hash_password("StrongOwnerPass123!"),
+            role="user",
+        )
+        active_job = create_generation_job(
+            session,
+            user_id=user.id,
+            prompt="Active job",
+            negative_prompt=None,
+            model=settings.upstream_model,
+            size="1024x1024",
+            quality=None,
+            request_payload={"prompt": "Active job", "size": "1024x1024"},
+        )
+        active_job_id = active_job.id
+    finally:
+        session.close()
+
+    token = client.post("/api/auth/login", json={"username": "job-owner", "password": "StrongOwnerPass123!"}).json()["access_token"]
+
+    delete_response = client.delete(
+        f"/api/images/generation-jobs/{active_job_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    detail_response = client.get(
+        f"/api/images/generation-jobs/{active_job_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    list_response = client.get("/api/images/generation-jobs", headers={"Authorization": f"Bearer {token}"})
+
+    assert delete_response.status_code == 204
+    assert detail_response.status_code == 404
+    assert list_response.status_code == 200
+    assert all(item["id"] != active_job_id for item in list_response.json())
+
+
 def service_request(**overrides):
     from app.schemas import ImageGenerationRequest
 
-    values = {"prompt": "test", "size": "1024x1024", "n": 1, "response_format": "b64_json"}
+    values = {"prompt": "test", "size": "1024x1024", "n": 1}
     values.update(overrides)
     return ImageGenerationRequest.model_validate(values)

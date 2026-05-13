@@ -53,13 +53,13 @@ const emit = defineEmits<{
 
 <style scoped>
 .app-header {
-  min-height: 4.5rem;
+  min-height: 4.75rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--line-strong);
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .app-header__brand {
@@ -75,11 +75,12 @@ const emit = defineEmits<{
   justify-content: center;
   width: 2.45rem;
   height: 2.45rem;
-  border-radius: 0.5rem;
-  background: var(--ink-strong);
+  border-radius: 0.45rem;
+  background: linear-gradient(135deg, var(--ink-strong), #0f766e);
   color: #fff;
   font-size: 0.78rem;
   font-weight: 800;
+  box-shadow: 0 10px 20px rgba(15, 118, 110, 0.18);
 }
 
 .app-header__eyebrow {
@@ -87,7 +88,8 @@ const emit = defineEmits<{
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.72rem;
-  color: var(--ink-muted);
+  color: var(--accent-strong);
+  font-weight: 800;
 }
 
 h1 {
@@ -108,22 +110,23 @@ h1 {
 .app-header__user {
   min-width: min(18rem, 38vw);
   padding-left: 0.75rem;
-  border-left: 1px solid var(--line-strong);
+  border-left: 1px solid var(--line-soft);
 }
 
 .locale-switch {
   display: inline-flex;
   padding: 0.2rem;
-  border: 1px solid var(--line-strong);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.45rem;
+  background: var(--surface-raised);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .locale-switch__button {
   border: 0;
   background: transparent;
   color: var(--ink-strong);
-  border-radius: 0.5rem;
+  border-radius: 0.35rem;
   padding: 0.38rem 0.65rem;
   font: inherit;
   font-size: 0.88rem;
@@ -134,6 +137,7 @@ h1 {
 .locale-switch__button--active {
   background: var(--ink-strong);
   color: #fff;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
 }
 
 @media (max-width: 760px) {

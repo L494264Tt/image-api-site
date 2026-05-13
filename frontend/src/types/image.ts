@@ -1,5 +1,4 @@
 export type HealthState = 'ready' | 'degraded' | 'offline'
-export type ResponseFormat = 'url' | 'b64_json'
 export type Locale = 'zh' | 'en'
 
 export interface ImageGenerationFormValues {
@@ -11,7 +10,6 @@ export interface ImageGenerationFormValues {
   n: number
   quality: string
   style: string
-  responseFormat: ResponseFormat
   background: string
   inputFidelity: string
   seed: string
@@ -43,7 +41,6 @@ export interface ImageGenerationRequest {
   aspect_ratio?: string
   quality?: string
   style?: string
-  response_format?: ResponseFormat
   negative_prompt?: string
   background?: string
   input_fidelity?: string
@@ -178,7 +175,7 @@ export interface FrontendConfig {
   aspectRatioOptions: string[]
   qualityOptions: string[]
   styleOptions: string[]
-  responseFormatOptions: ResponseFormat[]
+  responseFormatOptions?: string[]
   backgroundOptions: string[]
   inputFidelityOptions: string[]
   maxImages: number
@@ -228,7 +225,7 @@ export interface FormCopy {
   aspectRatio: string
   quality: string
   style: string
-  responseFormat: string
+  responseFormat?: string
   background: string
   referenceImages: string
   referenceImagesHint: string
@@ -250,7 +247,7 @@ export interface FormCopy {
   optionLabels: {
     quality: Record<string, string>
     style: Record<string, string>
-    responseFormat: Record<string, string>
+    responseFormat?: Record<string, string>
     background: Record<string, string>
     inputFidelity: Record<string, string>
   }
