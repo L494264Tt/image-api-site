@@ -267,5 +267,14 @@ h2 {
   .task-item {
     grid-template-columns: 1fr;
   }
+
+  .task-item__main p,
+  .task-item__prompt {
+    white-space: normal;
+  }
+
+  .task-item__actions button {
+    flex: 1 1 7rem;
+  }
 }
 </style>

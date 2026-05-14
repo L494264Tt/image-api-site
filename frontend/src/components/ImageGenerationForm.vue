@@ -990,6 +990,15 @@ select:focus {
     justify-content: flex-start;
   }
 
+  .model-summary__meta span {
+    white-space: normal;
+  }
+
+  .button {
+    width: 100%;
+    min-width: 0;
+  }
+
   .prompt-templates__grid {
     grid-template-columns: 1fr;
   }

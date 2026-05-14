@@ -153,7 +153,7 @@ function requestDelete(ids: number[]): void {
         <span>进入批量模式后可下载或删除选中的历史图片。</span>
       </div>
       <div class="history-bulkbar__actions">
-        <button class="button button--ghost" type="button" :disabled="selectedIds.length === 0" @click="downloadSelected">下载选中</button>
+        <button class="button button--ghost" type="button" :disabled="selectedIds.length === 0 || busy" @click="downloadSelected">下载选中</button>
         <button class="button button--danger" type="button" :disabled="selectedIds.length === 0 || busy" @click="deleteSelected">删除选中</button>
       </div>
     </div>
@@ -874,6 +874,11 @@ h2 {
 
   .history-card__actions {
     display: none;
+  }
+
+  .history-card__quick,
+  .image-modal__actions .button {
+    min-width: 0;
   }
 
   .image-modal__content {
