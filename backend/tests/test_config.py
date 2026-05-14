@@ -1,6 +1,8 @@
 import pytest
+from fastapi.testclient import TestClient
 
 from app.config import Settings
+from app.main import app
 
 
 def test_settings_support_database_and_auth_values() -> None:
@@ -65,3 +67,30 @@ def test_settings_reject_default_admin_password() -> None:
                 "ADMIN_PASSWORD": "admin",
             }
         )
+
+
+def test_config_endpoint_exposes_model_capabilities() -> None:
+    client = TestClient(app)
+
+    response = client.get("/api/config")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["defaultModel"] == "gpt-image-2"
+    assert payload["modelOptions"] == ["gpt-image-2"]
+    assert payload["sizeOptions"] == ["auto", "1024x1024", "1024x1536", "1536x1024"]
+    assert payload["qualityOptions"] == ["auto", "low", "medium", "high"]
+    assert payload["backgroundOptions"] == ["auto", "transparent", "opaque"]
+    assert payload["inputFidelityOptions"] == ["auto", "low", "high"]
+
+    capability = payload["modelCapabilities"][0]
+    assert capability["id"] == "gpt-image-2"
+    assert capability["label"] == "gpt-image-2"
+    assert capability["supports_text_to_image"] is True
+    assert capability["supports_image_to_image"] is True
+    assert capability["supports_image_input"] is True
+    assert capability["default_endpoint"] == "responses"
+    assert capability["sizes"] == payload["sizeOptions"]
+    assert capability["qualities"] == payload["qualityOptions"]
+    assert capability["backgrounds"] == payload["backgroundOptions"]
+    assert capability["input_fidelities"] == payload["inputFidelityOptions"]
