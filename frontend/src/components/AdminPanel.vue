@@ -220,9 +220,11 @@ function formatError(error: unknown, fallback: string): string {
   display: grid;
   gap: 1.2rem;
   padding: clamp(1rem, 2vw, 1.5rem);
-  border: 1px solid var(--line-strong);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-panel);
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
 }
 
 .admin-panel__header {
@@ -236,7 +238,9 @@ function formatError(error: unknown, fallback: string): string {
   margin: 0 0 0.35rem;
   color: var(--accent-strong);
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 h2 {
@@ -270,15 +274,15 @@ h2 {
   width: 100%;
   min-height: 2.75rem;
   padding: 0.72rem 0.85rem;
-  border: 1px solid rgba(18, 50, 43, 0.14);
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 252, 0.94);
   color: var(--ink-strong);
 }
 
 .admin-panel__field input:focus,
 .admin-panel__field select:focus {
-  outline: 2px solid rgba(155, 99, 48, 0.22);
+  outline: 2px solid rgba(49, 95, 157, 0.22);
   outline-offset: 1px;
 }
 
@@ -294,7 +298,7 @@ h2 {
 .admin-panel__secondary-button {
   min-height: 2.75rem;
   padding: 0.68rem 0.95rem;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-control);
   font-weight: 700;
   cursor: pointer;
 }
@@ -306,8 +310,8 @@ h2 {
 }
 
 .admin-panel__secondary-button {
-  border: 1px solid rgba(18, 50, 43, 0.14);
-  background: rgba(18, 50, 43, 0.06);
+  border: 1px solid var(--line-soft);
+  background: var(--surface-subtle);
   color: var(--ink-strong);
 }
 
@@ -320,7 +324,7 @@ h2 {
 .admin-panel__message {
   margin: 0;
   padding: 0.8rem 0.95rem;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-control);
 }
 
 .admin-panel__message--error {
@@ -348,7 +352,7 @@ h2 {
 .admin-panel__table th,
 .admin-panel__table td {
   padding: 0.85rem 0.75rem;
-  border-bottom: 1px solid rgba(18, 50, 43, 0.1);
+  border-bottom: 1px solid var(--line-soft);
   text-align: left;
   vertical-align: middle;
 }
@@ -381,8 +385,8 @@ h2 {
   justify-content: center;
   padding: 0.28rem 0.55rem;
   border-radius: 999px;
-  background: rgba(18, 112, 83, 0.12);
-  color: #0f6b4d;
+  background: rgba(17, 97, 73, 0.12);
+  color: var(--accent-strong);
   font-size: 0.82rem;
   font-weight: 700;
 }

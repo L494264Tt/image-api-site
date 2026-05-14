@@ -72,10 +72,11 @@ const headline = computed(() => {
   gap: 0.9rem;
   align-items: stretch;
   padding: 1rem;
-  border-radius: 0.55rem;
+  border-radius: var(--radius-panel);
   border: 1px solid var(--line-soft);
   background: var(--panel-bg);
   box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
 }
 
 .status-card__badge {
@@ -84,7 +85,7 @@ const headline = computed(() => {
   gap: 0.65rem;
   width: fit-content;
   padding: 0.55rem 0.85rem;
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   background: var(--surface-subtle);
   color: var(--ink-strong);
   font-size: 0.88rem;
@@ -96,7 +97,7 @@ const headline = computed(() => {
   height: 0.7rem;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 0.2rem rgba(49, 95, 157, 0.12);
 }
 
 .status-card__message {
@@ -121,7 +122,7 @@ const headline = computed(() => {
   padding: 0.45rem 0.6rem;
   justify-content: space-between;
   border: 1px solid var(--line-soft);
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   background: var(--surface-subtle);
 }
 
@@ -139,7 +140,7 @@ strong {
   grid-column: 1 / -1;
   margin: 0;
   padding: 0.65rem 0.8rem;
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   background: rgba(185, 28, 28, 0.08);
   color: var(--danger);
   border: 1px solid rgba(185, 28, 28, 0.16);

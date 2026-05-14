@@ -76,9 +76,10 @@ function canRetry(job: GenerationJobResponse): boolean {
   gap: 0.9rem;
   padding: clamp(1rem, 1.8vw, 1.35rem);
   border: 1px solid var(--line-soft);
-  border-radius: 0.55rem;
+  border-radius: var(--radius-panel);
   background: var(--panel-bg);
   box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
 }
 
 .task-center__header {
@@ -92,7 +93,7 @@ function canRetry(job: GenerationJobResponse): boolean {
   margin: 0 0 0.35rem;
   color: var(--accent-strong);
   font-size: 0.8rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   font-weight: 800;
 }
@@ -101,7 +102,7 @@ h2 {
   margin: 0;
   color: var(--ink-strong);
   font-family: var(--font-display);
-  font-size: clamp(1.3rem, 2vw, 1.75rem);
+  font-size: clamp(1.2rem, 1.7vw, 1.55rem);
 }
 
 .task-center__button,
@@ -109,7 +110,7 @@ h2 {
   min-height: 2.4rem;
   padding: 0.55rem 0.85rem;
   border: 1px solid var(--line-soft);
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   background: var(--surface-subtle);
   color: var(--ink-strong);
   font-weight: 700;
@@ -141,8 +142,8 @@ h2 {
   align-items: stretch;
   padding: 0.75rem;
   border: 1px solid var(--line-soft);
-  border-radius: 0.45rem;
-  background: #fff;
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 252, 0.9);
 }
 
 .task-item__main {
@@ -168,7 +169,7 @@ h2 {
   width: fit-content;
   padding: 0.25rem 0.5rem;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.06);
+  background: rgba(31, 36, 33, 0.06);
   color: var(--ink-strong);
   font-size: 0.82rem;
   font-weight: 700;
@@ -180,7 +181,7 @@ h2 {
 }
 
 .task-item--succeeded .task-item__status {
-  background: rgba(15, 118, 110, 0.1);
+  background: rgba(17, 97, 73, 0.1);
   color: var(--accent-strong);
 }
 

@@ -552,17 +552,18 @@ defineExpose({
 <style scoped>
 .generator-form {
   display: grid;
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .panel {
   display: grid;
-  gap: 1rem;
+  gap: 1.05rem;
   padding: clamp(1.15rem, 2vw, 1.8rem);
-  border-radius: 0.55rem;
+  border-radius: var(--radius-panel);
   border: 1px solid var(--line-soft);
   background: var(--panel-bg);
   box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
 }
 
 .panel__header {
@@ -575,7 +576,7 @@ defineExpose({
 .eyebrow {
   margin: 0 0 0.35rem;
   font-size: 0.8rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent-strong);
   font-weight: 800;
@@ -585,7 +586,8 @@ h2 {
   margin: 0;
   color: var(--ink-strong);
   font-family: var(--font-display);
-  font-size: clamp(1.45rem, 2vw, 1.95rem);
+  font-size: clamp(1.35rem, 1.9vw, 1.8rem);
+  letter-spacing: 0;
 }
 
 .counter {
@@ -594,9 +596,9 @@ h2 {
   justify-content: center;
   min-width: 6.5rem;
   padding: 0.45rem 0.75rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(15, 118, 110, 0.12);
-  background: rgba(15, 118, 110, 0.08);
+  border-radius: var(--radius-control);
+  border: 1px solid rgba(181, 105, 44, 0.18);
+  background: rgba(181, 105, 44, 0.08);
   color: var(--ink-strong);
   font-size: 0.88rem;
   font-weight: 600;
@@ -619,7 +621,8 @@ h2 {
 
 .field__label {
   color: var(--ink-strong);
-  font-weight: 600;
+  font-size: 0.91rem;
+  font-weight: 720;
 }
 
 .field__hint {
@@ -651,7 +654,7 @@ h2 {
   min-height: 4.5rem;
   padding: 0.8rem 0.9rem;
   border: 1px solid var(--line-soft);
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   background: var(--surface-subtle);
   color: var(--ink-soft);
   text-align: left;
@@ -680,9 +683,9 @@ h2 {
 
 .prompt-template:hover {
   transform: translateY(-1px);
-  border-color: rgba(37, 99, 235, 0.22);
-  background: #fff;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+  border-color: rgba(49, 95, 157, 0.22);
+  background: #fffffc;
+  box-shadow: 0 10px 22px rgba(31, 36, 33, 0.08);
 }
 
 .prompt-templates__category {
@@ -700,7 +703,7 @@ h2 {
   justify-self: start;
   padding: 0.55rem 0.8rem;
   border: 1px solid var(--line-soft);
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   background: var(--surface-subtle);
   color: var(--ink-strong);
   font-weight: 700;
@@ -717,7 +720,7 @@ h2 {
   gap: 0.75rem;
   padding: 0.9rem;
   border: 1px solid var(--line-soft);
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   background: var(--surface-subtle);
 }
 
@@ -739,9 +742,9 @@ h2 {
   display: grid;
   gap: 0.85rem;
   padding: 1rem;
-  border: 1px dashed rgba(37, 99, 235, 0.22);
-  border-radius: 0.45rem;
-  background: rgba(37, 99, 235, 0.045);
+  border: 1px dashed rgba(49, 95, 157, 0.24);
+  border-radius: var(--radius-control);
+  background: rgba(49, 95, 157, 0.055);
 }
 
 .reference-uploader p {
@@ -766,8 +769,8 @@ h2 {
   justify-content: center;
   min-height: 2.7rem;
   padding: 0.65rem 0.95rem;
-  border-radius: 0.45rem;
-  background: var(--ink-strong);
+  border-radius: var(--radius-control);
+  background: var(--accent-strong);
   color: #fff;
   font-weight: 700;
   cursor: pointer;
@@ -796,8 +799,8 @@ h2 {
   overflow: hidden;
   margin: 0;
   border: 1px solid var(--line-soft);
-  border-radius: 0.45rem;
-  background: #fff;
+  border-radius: var(--radius-control);
+  background: #fffffc;
 }
 
 .reference-uploader__previews img {
@@ -837,9 +840,9 @@ select {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--line-strong);
-  border-radius: 0.45rem;
-  padding: 0.85rem 0.95rem;
-  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-control);
+  padding: 0.82rem 0.95rem;
+  background: rgba(255, 255, 252, 0.94);
   color: var(--ink-strong);
   font: inherit;
   transition:
@@ -857,8 +860,8 @@ textarea:focus,
 input:focus,
 select:focus {
   outline: none;
-  border-color: rgba(37, 99, 235, 0.42);
-  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.12);
+  border-color: rgba(49, 95, 157, 0.42);
+  box-shadow: 0 0 0 0.2rem rgba(49, 95, 157, 0.12);
 }
 
 .actions {
@@ -873,9 +876,9 @@ select:focus {
   justify-content: center;
   min-width: 8rem;
   padding: 0.85rem 1.2rem;
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   border: 1px solid transparent;
-  background: linear-gradient(135deg, #0f172a, #0f766e);
+  background: linear-gradient(135deg, var(--ink-strong), var(--accent-strong));
   color: #fff;
   font: inherit;
   font-weight: 700;
@@ -888,7 +891,7 @@ select:focus {
 
 .button:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 14px 24px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 14px 24px rgba(31, 36, 33, 0.18);
 }
 
 .button:disabled {

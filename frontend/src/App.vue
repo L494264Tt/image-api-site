@@ -737,11 +737,13 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
       </section>
 
       <template v-else>
-        <WorkspaceTabs
-          v-model="activeWorkspaceTab"
-          :tabs="workspaceTabs"
-          aria-label="工作台导航"
-        />
+        <div class="workspace-nav">
+          <WorkspaceTabs
+            v-model="activeWorkspaceTab"
+            :tabs="workspaceTabs"
+            aria-label="工作台导航"
+          />
+        </div>
 
         <section v-show="activeWorkspaceTab === 'generate'" class="workspace-view workspace-view--generate">
           <div class="workspace-main">
@@ -832,14 +834,36 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
   overflow: clip;
 }
 
+.app-shell::before {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: '';
+  background:
+    linear-gradient(90deg, rgba(31, 36, 33, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(31, 36, 33, 0.03) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.48), transparent 72%);
+}
+
 .page {
   position: relative;
   z-index: 1;
-  width: min(1440px, calc(100% - 2rem));
+  width: min(1480px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 0 0 3.5rem;
+  padding: 0 0 3.75rem;
   display: grid;
-  gap: 1.1rem;
+  gap: 1rem;
+}
+
+.workspace-nav {
+  position: sticky;
+  top: 0.7rem;
+  z-index: 15;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
 }
 
 .workspace-view {
@@ -848,8 +872,8 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
 
 .workspace-view--generate {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.38fr);
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.34fr);
+  gap: 1.1rem;
   align-items: start;
 }
 
@@ -857,12 +881,12 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
 .workspace-sidebar {
   min-width: 0;
   display: grid;
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .workspace-sidebar {
   position: sticky;
-  top: 5.5rem;
+  top: 5.35rem;
 }
 
 .login-page {
@@ -885,7 +909,7 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
   min-height: 2.7rem;
   padding: 0.7rem 1rem;
   border: 1px solid var(--line-strong);
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   background: var(--panel-bg);
   box-shadow: var(--shadow-card);
   color: var(--ink-muted);
@@ -923,6 +947,10 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
     width: min(100% - 1rem, 1440px);
     gap: 0.8rem;
     padding-bottom: 2rem;
+  }
+
+  .workspace-nav {
+    top: 0.45rem;
   }
 }
 </style>

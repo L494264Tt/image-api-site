@@ -53,13 +53,12 @@ const emit = defineEmits<{
 
 <style scoped>
 .app-header {
-  min-height: 4.75rem;
+  min-height: 5.1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.8rem 0;
-  border-bottom: 1px solid var(--line-soft);
+  padding: 0.95rem 0 0.8rem;
 }
 
 .app-header__brand {
@@ -73,20 +72,20 @@ const emit = defineEmits<{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.45rem;
-  height: 2.45rem;
-  border-radius: 0.45rem;
-  background: linear-gradient(135deg, var(--ink-strong), #0f766e);
+  width: 2.55rem;
+  height: 2.55rem;
+  border-radius: 0.62rem;
+  background: linear-gradient(135deg, var(--ink-strong), var(--accent-strong));
   color: #fff;
   font-size: 0.78rem;
   font-weight: 800;
-  box-shadow: 0 10px 20px rgba(15, 118, 110, 0.18);
+  box-shadow: 0 12px 24px rgba(17, 97, 73, 0.18);
 }
 
 .app-header__eyebrow {
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   font-size: 0.72rem;
   color: var(--accent-strong);
   font-weight: 800;
@@ -117,16 +116,16 @@ h1 {
   display: inline-flex;
   padding: 0.2rem;
   border: 1px solid var(--line-soft);
-  border-radius: 0.45rem;
+  border-radius: 0.55rem;
   background: var(--surface-raised);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 10px 24px rgba(31, 36, 33, 0.06);
 }
 
 .locale-switch__button {
   border: 0;
   background: transparent;
   color: var(--ink-strong);
-  border-radius: 0.35rem;
+  border-radius: 0.4rem;
   padding: 0.38rem 0.65rem;
   font: inherit;
   font-size: 0.88rem;
@@ -137,7 +136,7 @@ h1 {
 .locale-switch__button--active {
   background: var(--ink-strong);
   color: #fff;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 7px 16px rgba(31, 36, 33, 0.12);
 }
 
 @media (max-width: 760px) {

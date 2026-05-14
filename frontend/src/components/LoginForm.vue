@@ -80,10 +80,11 @@ function submitForm(): void {
   display: grid;
   gap: 1.4rem;
   padding: clamp(1.25rem, 2.4vw, 2rem);
-  border-radius: 0.65rem;
+  border-radius: var(--radius-panel);
   border: 1px solid var(--line-soft);
   background: var(--panel-bg);
   box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
 }
 
 .auth-panel__header {
@@ -96,7 +97,7 @@ function submitForm(): void {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-size: 0.74rem;
-  color: var(--accent-strong);
+  color: var(--accent-warm);
   font-weight: 800;
 }
 
@@ -133,20 +134,20 @@ input {
   width: 100%;
   min-height: 3rem;
   padding: 0.8rem 1rem;
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   border: 1px solid var(--line-strong);
-  background: #fff;
+  background: #fffffc;
   color: var(--ink-strong);
 }
 
 input:focus {
-  outline: 2px solid rgba(37, 99, 235, 0.22);
+  outline: 2px solid rgba(49, 95, 157, 0.22);
   outline-offset: 1px;
 }
 
 .auth-form__error {
   padding: 0.9rem 1rem;
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   background: rgba(185, 28, 28, 0.08);
   border: 1px solid rgba(185, 28, 28, 0.16);
   color: var(--danger);
@@ -163,8 +164,8 @@ input:focus {
   min-height: 3rem;
   padding: 0.7rem 1.2rem;
   border: 0;
-  border-radius: 0.45rem;
-  background: linear-gradient(135deg, #0f172a, #0f766e);
+  border-radius: var(--radius-control);
+  background: linear-gradient(135deg, var(--ink-strong), var(--accent-strong));
   color: #fff;
   font-weight: 700;
   cursor: pointer;
@@ -175,7 +176,7 @@ input:focus {
 
 .auth-form__submit:hover:enabled {
   transform: translateY(-1px);
-  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 12px 22px rgba(31, 36, 33, 0.16);
 }
 
 .auth-form__submit:disabled {

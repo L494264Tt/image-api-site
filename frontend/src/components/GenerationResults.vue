@@ -65,10 +65,11 @@ defineProps<{
   display: grid;
   gap: 1.25rem;
   padding: clamp(1.15rem, 2vw, 1.8rem);
-  border-radius: 0.55rem;
+  border-radius: var(--radius-panel);
   border: 1px solid var(--line-soft);
   background: var(--panel-bg);
   box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
 }
 
 .results-panel__header {
@@ -81,7 +82,7 @@ defineProps<{
 .results-panel__eyebrow {
   margin: 0 0 0.35rem;
   font-size: 0.8rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent-strong);
   font-weight: 800;
@@ -91,7 +92,7 @@ h2 {
   margin: 0;
   color: var(--ink-strong);
   font-family: var(--font-display);
-  font-size: clamp(1.65rem, 3vw, 2.2rem);
+  font-size: clamp(1.45rem, 2.4vw, 2rem);
 }
 
 .results-panel__stamp,
@@ -106,10 +107,10 @@ h2 {
   gap: 0.45rem;
   min-height: 240px;
   padding: 1.2rem;
-  border-radius: 0.55rem;
-  border: 1px dashed rgba(37, 99, 235, 0.22);
+  border-radius: var(--radius-panel);
+  border: 1px dashed rgba(49, 95, 157, 0.22);
   text-align: center;
-  background: rgba(37, 99, 235, 0.04);
+  background: rgba(49, 95, 157, 0.045);
 }
 
 .results-panel__empty strong {
@@ -130,15 +131,15 @@ h2 {
 
 .result-card {
   overflow: hidden;
-  border-radius: 0.55rem;
+  border-radius: var(--radius-panel);
   border: 1px solid var(--line-soft);
-  background: #fff;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  background: #fffffc;
+  box-shadow: 0 10px 24px rgba(31, 36, 33, 0.08);
 }
 
 .result-card__media {
   aspect-ratio: 1 / 1;
-  background: linear-gradient(160deg, rgba(37, 99, 235, 0.12), rgba(15, 118, 110, 0.12));
+  background: linear-gradient(160deg, rgba(49, 95, 157, 0.12), rgba(17, 97, 73, 0.12));
 }
 
 .result-card__media img {
@@ -167,14 +168,14 @@ h2 {
   justify-content: center;
   padding: 0.35rem 0.7rem;
   border-radius: 999px;
-  background: rgba(15, 118, 110, 0.1);
+  background: rgba(17, 97, 73, 0.1);
   color: var(--ink-strong);
   font-size: 0.82rem;
   font-weight: 600;
 }
 
 .pill--muted {
-  background: rgba(15, 23, 42, 0.06);
+  background: rgba(31, 36, 33, 0.06);
   color: var(--ink-soft);
 }
 
@@ -190,7 +191,7 @@ h2 {
   justify-content: center;
   min-width: 6.2rem;
   padding: 0.72rem 1rem;
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   border: 1px solid transparent;
   background: var(--ink-strong);
   color: #fff;
@@ -204,7 +205,7 @@ h2 {
 
 .button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 10px 18px rgba(31, 36, 33, 0.16);
 }
 
 .button--ghost {

@@ -60,7 +60,7 @@ strong {
 .user-menu__button {
   min-height: 2.7rem;
   padding: 0.65rem 0.95rem;
-  border-radius: 0.45rem;
+  border-radius: var(--radius-control);
   border: 1px solid var(--line-soft);
   background: var(--surface-subtle);
   color: var(--ink-strong);
