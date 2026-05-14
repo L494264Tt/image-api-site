@@ -483,14 +483,21 @@ defineExpose({
         </div>
       </div>
 
-      <div class="grid">
-        <label class="field">
+      <div class="model-summary">
+        <label class="model-summary__select">
           <span class="field__label">{{ copy.model }}</span>
           <select v-model="form.model" name="model">
             <option v-for="model in modelOptions" :key="model" :value="model">{{ labelForModel(model) }}</option>
           </select>
         </label>
+        <div class="model-summary__meta">
+          <span>{{ formModeLabel }}</span>
+          <span>{{ supportsImageInput ? copy.referenceImages : '仅提示词' }}</span>
+          <span>{{ sizeOptions.length }} 个尺寸</span>
+        </div>
+      </div>
 
+      <div class="grid grid--compact">
         <label class="field">
           <span class="field__label">{{ copy.canvasSize }}</span>
           <select v-model="form.size" name="size">
@@ -608,6 +615,65 @@ h2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.95rem;
+}
+
+.grid--compact {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.grid--compact .field {
+  gap: 0.35rem;
+}
+
+.grid--compact select {
+  min-height: 2.65rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.model-summary {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) auto;
+  gap: 0.85rem;
+  align-items: end;
+  padding: 0.85rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+}
+
+.model-summary__select {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.model-summary__select select {
+  min-height: 2.85rem;
+  border-color: rgba(17, 97, 73, 0.22);
+  background: #fffffc;
+  color: var(--ink-strong);
+  font-weight: 760;
+}
+
+.model-summary__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.model-summary__meta span {
+  min-height: 1.8rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: #fffffc;
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .field {
@@ -914,6 +980,14 @@ select:focus {
 
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .model-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .model-summary__meta {
+    justify-content: flex-start;
   }
 
   .prompt-templates__grid {
