@@ -35,6 +35,35 @@ function isDeleting(job: GenerationJobResponse, deletingJobIds: number[]): boole
   return deletingJobIds.includes(job.id)
 }
 
+function formatDuration(job: GenerationJobResponse): string | null {
+  const start = job.started_at || job.created_at
+  const end = job.completed_at
+  if (!end) {
+    return null
+  }
+
+  const durationSeconds = Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000))
+  if (durationSeconds < 60) {
+    return `${durationSeconds} 秒`
+  }
+
+  const minutes = Math.floor(durationSeconds / 60)
+  const seconds = durationSeconds % 60
+  return seconds > 0 ? `${minutes} 分 ${seconds} 秒` : `${minutes} 分钟`
+}
+
+function jobSummary(job: GenerationJobResponse): string {
+  if (job.status === 'failed') {
+    return job.error_message || job.progress_message || '生成失败'
+  }
+
+  return job.progress_message || statusLabels[job.status] || job.status
+}
+
+function modelLabel(job: GenerationJobResponse): string {
+  return job.effective_model || job.requested_model || '默认模型'
+}
+
 </script>
 
 <template>
@@ -54,9 +83,18 @@ function isDeleting(job: GenerationJobResponse, deletingJobIds: number[]): boole
     <div v-else class="task-list">
       <article v-for="job in jobs" :key="job.id" class="task-item" :class="`task-item--${job.status}`">
         <div class="task-item__main">
-          <span class="task-item__status">{{ statusLabels[job.status] || job.status }}</span>
-          <p>{{ job.progress_message || statusLabels[job.status] }}</p>
-          <small>{{ formatDateTime(job.created_at) }}</small>
+          <div class="task-item__head">
+            <span class="task-item__status">{{ statusLabels[job.status] || job.status }}</span>
+            <small>#{{ job.id }}</small>
+          </div>
+          <p>{{ jobSummary(job) }}</p>
+          <div class="task-item__meta">
+            <span>{{ modelLabel(job) }}</span>
+            <span>{{ job.image?.size || '原始尺寸' }}</span>
+            <span>尝试 {{ job.attempt_count }} / {{ job.max_attempts }}</span>
+            <span>{{ formatDateTime(job.created_at) }}</span>
+            <span v-if="formatDuration(job)">耗时 {{ formatDuration(job) }}</span>
+          </div>
         </div>
         <p class="task-item__prompt">{{ job.image?.prompt || job.error_message || '等待生成结果' }}</p>
         <div class="task-item__actions">
@@ -158,6 +196,24 @@ h2 {
   gap: 0.2rem;
 }
 
+.task-item__head,
+.task-item__meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.task-item__head {
+  justify-content: space-between;
+}
+
+.task-item__head small {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+}
+
 .task-item__main p,
 .task-item__prompt {
   margin: 0;
@@ -166,10 +222,18 @@ h2 {
   color: var(--ink-soft);
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.45;
 }
 
-.task-item__main small {
+.task-item__meta span {
+  min-height: 1.55rem;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--surface-subtle);
   color: var(--ink-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 
 .task-item__status {
