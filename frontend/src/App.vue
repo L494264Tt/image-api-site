@@ -831,7 +831,7 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
 .app-shell {
   position: relative;
   min-height: 100vh;
-  overflow: clip;
+  overflow-x: clip;
 }
 
 .app-shell::before {
@@ -854,15 +854,20 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
   margin: 0 auto;
   padding: 0 0 3.75rem;
   display: grid;
-  gap: 1rem;
+  gap: 0;
 }
 
 .workspace-nav {
   position: sticky;
-  top: 0.7rem;
+  top: var(--sticky-nav-top);
   z-index: 15;
   display: flex;
   justify-content: center;
+  margin: 0 -1rem 1rem;
+  padding: 0.7rem 1rem 0.75rem;
+  background:
+    linear-gradient(180deg, rgba(248, 248, 244, 0.96), rgba(248, 248, 244, 0.82) 72%, transparent);
+  backdrop-filter: blur(18px);
   pointer-events: none;
 }
 
@@ -886,7 +891,7 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
 
 .workspace-sidebar {
   position: sticky;
-  top: 5.35rem;
+  top: var(--sticky-sidebar-top);
 }
 
 .login-page {
@@ -945,12 +950,13 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
 @media (max-width: 720px) {
   .page {
     width: min(100% - 1rem, 1440px);
-    gap: 0.8rem;
     padding-bottom: 2rem;
   }
 
   .workspace-nav {
-    top: 0.45rem;
+    margin-right: -0.5rem;
+    margin-left: -0.5rem;
+    padding: 0.55rem 0.5rem 0.65rem;
   }
 }
 </style>

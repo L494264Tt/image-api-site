@@ -23,6 +23,9 @@
     0 10px 24px rgba(31, 36, 33, 0.06),
     0 1px 0 rgba(255, 255, 255, 0.8) inset;
   --shadow-lift: 0 18px 44px rgba(31, 36, 33, 0.13);
+  --sticky-nav-top: 0rem;
+  --sticky-sidebar-top: 5.8rem;
+  --scroll-offset: 6.4rem;
   --font-display: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
   --font-body: 'Plus Jakarta Sans', 'Trebuchet MS', 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', 'Consolas', monospace;
@@ -46,6 +49,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: var(--scroll-offset);
 }
 
 body {
@@ -151,5 +155,7 @@ code {
 @media (max-width: 720px) {
   :root {
     font-size: 15px;
+    --sticky-sidebar-top: 0rem;
+    --scroll-offset: 5.25rem;
   }
 }
