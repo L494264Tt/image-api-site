@@ -8,6 +8,7 @@ const props = defineProps<{
   errorMessage: string | null
   total: number
   hasMore: boolean
+  deletingImageIds: number[]
   availableModels: string[]
   availableSizes: string[]
   formatDateTime: (value: string) => string
@@ -87,6 +88,14 @@ function toggleSelectionMode(): void {
     selectedIds.value = []
   }
 }
+
+function isDeleting(id: number): boolean {
+  return props.deletingImageIds.includes(id)
+}
+
+function requestDelete(ids: number[]): void {
+  emit('deleteImages', ids)
+}
 </script>
 
 <template>
@@ -109,7 +118,7 @@ function toggleSelectionMode(): void {
         <button v-if="selecting" type="button" class="history-panel__refresh" :disabled="selectedIds.length === 0" @click="downloadSelected">
           批量下载
         </button>
-        <button v-if="selecting" type="button" class="history-panel__refresh" :disabled="selectedIds.length === 0" @click="deleteSelected">
+        <button v-if="selecting" type="button" class="history-panel__refresh" :disabled="selectedIds.length === 0 || busy" @click="deleteSelected">
           删除选中
         </button>
         <button type="button" class="history-panel__refresh" :disabled="busy" @click="emit('refresh')">
@@ -145,7 +154,7 @@ function toggleSelectionMode(): void {
       </div>
       <div class="history-bulkbar__actions">
         <button class="button button--ghost" type="button" :disabled="selectedIds.length === 0" @click="downloadSelected">下载选中</button>
-        <button class="button button--danger" type="button" :disabled="selectedIds.length === 0" @click="deleteSelected">删除选中</button>
+        <button class="button button--danger" type="button" :disabled="selectedIds.length === 0 || busy" @click="deleteSelected">删除选中</button>
       </div>
     </div>
 
@@ -186,7 +195,14 @@ function toggleSelectionMode(): void {
             <button class="history-card__quick" type="button" @click="emit('downloadImage', item)">下载</button>
             <button class="history-card__quick" type="button" @click="emit('reusePrompt', item)">复用</button>
             <button class="history-card__quick" type="button" @click="emit('editFromImage', item)">再编辑</button>
-            <button class="history-card__quick history-card__quick--danger" type="button" @click="emit('deleteImages', [item.recordId])">删除</button>
+            <button
+              class="history-card__quick history-card__quick--danger"
+              type="button"
+              :disabled="isDeleting(item.recordId)"
+              @click="requestDelete([item.recordId])"
+            >
+              {{ isDeleting(item.recordId) ? '删除中...' : '删除' }}
+            </button>
           </div>
         </div>
 
@@ -217,7 +233,9 @@ function toggleSelectionMode(): void {
               {{ item.isFavorite ? '取消收藏' : '收藏' }}
             </button>
             <button class="button button--ghost" type="button" @click="emit('openImage', item)">{{ copy.open }}</button>
-            <button class="button button--ghost" type="button" @click="emit('deleteImages', [item.recordId])">删除</button>
+            <button class="button button--ghost" type="button" :disabled="isDeleting(item.recordId)" @click="requestDelete([item.recordId])">
+              {{ isDeleting(item.recordId) ? '删除中...' : '删除' }}
+            </button>
             <button class="button" type="button" @click="emit('downloadImage', item)">{{ copy.download }}</button>
           </div>
         </div>
@@ -266,7 +284,14 @@ function toggleSelectionMode(): void {
           <div class="image-modal__actions">
             <button class="button button--ghost" type="button" @click="emit('reusePrompt', previewItem)">复用提示词</button>
             <button class="button button--ghost" type="button" @click="emit('editFromImage', previewItem)">基于此图再改</button>
-            <button class="button button--ghost" type="button" @click="emit('deleteImages', [previewItem.recordId]); previewItem = null">删除</button>
+            <button
+              class="button button--ghost"
+              type="button"
+              :disabled="isDeleting(previewItem.recordId)"
+              @click="requestDelete([previewItem.recordId]); previewItem = null"
+            >
+              {{ isDeleting(previewItem.recordId) ? '删除中...' : '删除' }}
+            </button>
             <button class="button" type="button" @click="emit('downloadImage', previewItem)">{{ copy.download }}</button>
           </div>
         </div>

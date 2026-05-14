@@ -41,6 +41,8 @@ const authBusy = ref(false)
 const logoutBusy = ref(false)
 const historyLoading = ref(false)
 const taskLoading = ref(false)
+const deletingHistoryIds = ref<number[]>([])
+const deletingJobIds = ref<number[]>([])
 const healthState = ref<HealthState>('degraded')
 const statusMessage = ref(copy.value.app.probing)
 const errorMessage = ref<string | null>(null)
@@ -622,8 +624,25 @@ async function handleToggleFavorite(item: HistoryRenderableImage): Promise<void>
 }
 
 async function handleDeleteImages(ids: number[]): Promise<void> {
-  await apiClient.bulkDeleteImages(ids)
-  await refreshHistory()
+  if (ids.length === 0) {
+    return
+  }
+
+  const message = ids.length === 1
+    ? '确定要删除这条历史记录吗？关联的最近生成任务记录也会被隐藏。'
+    : `确定要删除选中的 ${ids.length} 条历史记录吗？关联的最近生成任务记录也会被隐藏。`
+  if (!window.confirm(message)) {
+    return
+  }
+
+  deletingHistoryIds.value = [...new Set([...deletingHistoryIds.value, ...ids])]
+
+  try {
+    await apiClient.bulkDeleteImages(ids)
+    await refreshHistory()
+  } finally {
+    deletingHistoryIds.value = deletingHistoryIds.value.filter((id) => !ids.includes(id))
+  }
 }
 
 async function handleBulkDownload(ids: number[]): Promise<void> {
@@ -672,13 +691,23 @@ async function handleRetryJob(job: GenerationJobResponse): Promise<void> {
 }
 
 async function handleDeleteJob(job: GenerationJobResponse): Promise<void> {
-  await apiClient.deleteGenerationJob(job.id)
-  generationJobs.value = generationJobs.value.filter((item) => item.id !== job.id)
-  if (activeJob.value?.id === job.id) {
-    submitting.value = false
-    stopJobPolling()
-    clearPersistedActiveJob()
-    activeJob.value = null
+  if (!window.confirm('确定要删除这条生成任务记录吗？记录会被隐藏，但已生成的历史图片不会被删除。')) {
+    return
+  }
+
+  deletingJobIds.value = [...new Set([...deletingJobIds.value, job.id])]
+
+  try {
+    await apiClient.deleteGenerationJob(job.id)
+    generationJobs.value = generationJobs.value.filter((item) => item.id !== job.id)
+    if (activeJob.value?.id === job.id) {
+      submitting.value = false
+      stopJobPolling()
+      clearPersistedActiveJob()
+      activeJob.value = null
+    }
+  } finally {
+    deletingJobIds.value = deletingJobIds.value.filter((id) => id !== job.id)
   }
 }
 
@@ -782,6 +811,7 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
             <TaskCenter
               :jobs="generationJobs"
               :busy="taskLoading"
+              :deleting-job-ids="deletingJobIds"
               :format-date-time="formatDateTime"
               @refresh="refreshGenerationJobs"
               @cancel="handleCancelJob"
@@ -798,6 +828,7 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
             :error-message="historyErrorMessage"
             :total="historyTotal"
             :has-more="hasMoreHistory"
+            :deleting-image-ids="deletingHistoryIds"
             :available-models="availableModels"
             :available-sizes="availableSizes"
             :format-date-time="formatDateTime"

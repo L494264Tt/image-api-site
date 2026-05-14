@@ -4,6 +4,7 @@ import type { GenerationJobResponse } from '../types/image'
 defineProps<{
   jobs: GenerationJobResponse[]
   busy: boolean
+  deletingJobIds: number[]
   formatDateTime: (value: string) => string
 }>()
 
@@ -28,6 +29,10 @@ function canCancel(job: GenerationJobResponse): boolean {
 
 function canRetry(job: GenerationJobResponse): boolean {
   return job.status === 'failed' || job.status === 'canceled'
+}
+
+function isDeleting(job: GenerationJobResponse, deletingJobIds: number[]): boolean {
+  return deletingJobIds.includes(job.id)
 }
 
 </script>
@@ -55,14 +60,15 @@ function canRetry(job: GenerationJobResponse): boolean {
         </div>
         <p class="task-item__prompt">{{ job.image?.prompt || job.error_message || '等待生成结果' }}</p>
         <div class="task-item__actions">
-          <button v-if="canCancel(job)" type="button" @click="emit('cancel', job)">取消</button>
-          <button v-if="canRetry(job)" type="button" @click="emit('retry', job)">重试</button>
+          <button v-if="canCancel(job)" type="button" :disabled="isDeleting(job, deletingJobIds)" @click="emit('cancel', job)">取消</button>
+          <button v-if="canRetry(job)" type="button" :disabled="isDeleting(job, deletingJobIds)" @click="emit('retry', job)">重试</button>
           <button
             type="button"
             class="task-item__delete"
+            :disabled="isDeleting(job, deletingJobIds)"
             @click="emit('delete', job)"
           >
-            删除记录
+            {{ isDeleting(job, deletingJobIds) ? '删除中...' : '删除记录' }}
           </button>
         </div>
       </article>
@@ -117,7 +123,8 @@ h2 {
   cursor: pointer;
 }
 
-.task-center__button:disabled {
+.task-center__button:disabled,
+.task-item__actions button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
