@@ -12,7 +12,12 @@ def test_health_returns_ok() -> None:
     response = client.get("/api/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["checks"]["database"] == {"status": "ok"}
+    assert payload["checks"]["storage"] == {"status": "ok"}
+    assert payload["checks"]["worker"]["status"] == "configured"
+    assert payload["checks"]["worker"]["maxAttempts"] >= 1
 
 
 def test_request_id_header_is_generated() -> None:
