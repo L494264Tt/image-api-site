@@ -23,6 +23,16 @@ const statusLabels: Record<string, string> = {
   canceled: '已取消',
 }
 
+const errorCategoryLabels: Record<string, string> = {
+  billing: '额度',
+  input: '参考图',
+  internal: '内部',
+  model: '模型',
+  parameters: '参数',
+  timeout: '超时',
+  upstream: '上游',
+}
+
 function canCancel(job: GenerationJobResponse): boolean {
   return job.status === 'queued' || job.status === 'running'
 }
@@ -64,6 +74,14 @@ function modelLabel(job: GenerationJobResponse): string {
   return job.effective_model || job.requested_model || '默认模型'
 }
 
+function errorCategoryLabel(job: GenerationJobResponse): string | null {
+  if (job.status !== 'failed' || !job.error_category) {
+    return null
+  }
+
+  return errorCategoryLabels[job.error_category] || job.error_category
+}
+
 </script>
 
 <template>
@@ -94,6 +112,12 @@ function modelLabel(job: GenerationJobResponse): string {
             <span>尝试 {{ job.attempt_count }} / {{ job.max_attempts }}</span>
             <span>{{ formatDateTime(job.created_at) }}</span>
             <span v-if="formatDuration(job)">耗时 {{ formatDuration(job) }}</span>
+            <span v-if="errorCategoryLabel(job)" class="task-item__meta-error">
+              {{ errorCategoryLabel(job) }}
+            </span>
+            <span v-if="job.status === 'failed' && job.error_code" class="task-item__meta-error">
+              {{ job.error_code }}
+            </span>
           </div>
         </div>
         <p class="task-item__prompt">{{ job.image?.prompt || job.error_message || '等待生成结果' }}</p>
@@ -234,6 +258,12 @@ h2 {
   color: var(--ink-muted);
   font-size: 0.78rem;
   font-weight: 650;
+}
+
+.task-item__meta .task-item__meta-error {
+  border-color: rgba(180, 35, 24, 0.18);
+  background: rgba(180, 35, 24, 0.07);
+  color: var(--danger);
 }
 
 .task-item__status {
