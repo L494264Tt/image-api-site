@@ -41,7 +41,15 @@ const filters = reactive({
 const selectedIds = ref<number[]>([])
 const previewItem = ref<HistoryRenderableImage | null>(null)
 const selecting = ref(false)
+const showAdvancedFilters = ref(false)
 let filterTimer: number | null = null
+
+const advancedFilterLabels: Record<'tag' | 'project' | 'createdFrom' | 'createdTo', string> = {
+  tag: '标签',
+  project: '项目',
+  createdFrom: '开始',
+  createdTo: '结束',
+}
 
 function applyFilters(): void {
   emit('filtersChange', { ...filters })
@@ -96,6 +104,47 @@ function isDeleting(id: number): boolean {
 function requestDelete(ids: number[]): void {
   emit('deleteImages', ids)
 }
+
+function clearFilters(): void {
+  filters.search = ''
+  filters.model = ''
+  filters.size = ''
+  filters.favorite = false
+  filters.tag = ''
+  filters.project = ''
+  filters.createdFrom = ''
+  filters.createdTo = ''
+}
+
+function removeFilter(key: keyof typeof filters): void {
+  if (key === 'favorite') {
+    filters.favorite = false
+    return
+  }
+  filters[key] = ''
+}
+
+function activeFilterChips(): Array<{ key: keyof typeof filters; label: string; value: string }> {
+  const chips: Array<{ key: keyof typeof filters; label: string; value: string }> = []
+  if (filters.search) {
+    chips.push({ key: 'search', label: '搜索', value: filters.search })
+  }
+  if (filters.model) {
+    chips.push({ key: 'model', label: '模型', value: filters.model })
+  }
+  if (filters.size) {
+    chips.push({ key: 'size', label: '尺寸', value: filters.size })
+  }
+  if (filters.favorite) {
+    chips.push({ key: 'favorite', label: '收藏', value: '只看收藏' })
+  }
+  for (const key of ['tag', 'project', 'createdFrom', 'createdTo'] as const) {
+    if (filters[key]) {
+      chips.push({ key, label: advancedFilterLabels[key], value: filters[key] })
+    }
+  }
+  return chips
+}
 </script>
 
 <template>
@@ -128,23 +177,48 @@ function requestDelete(ids: number[]): void {
     </div>
 
     <form class="history-filters" @submit.prevent>
-      <input v-model="filters.search" type="search" placeholder="搜索提示词" />
-      <select v-model="filters.model">
-        <option value="">全部模型</option>
-        <option v-for="model in availableModels" :key="model" :value="model">{{ model }}</option>
-      </select>
-      <select v-model="filters.size">
-        <option value="">全部尺寸</option>
-        <option v-for="size in availableSizes" :key="size" :value="size">{{ size }}</option>
-      </select>
-      <label class="history-filters__favorite">
-        <input v-model="filters.favorite" type="checkbox" />
-        只看收藏
-      </label>
-      <input v-model="filters.tag" type="search" placeholder="标签" />
-      <input v-model="filters.project" type="search" placeholder="项目" />
-      <input v-model="filters.createdFrom" type="date" title="开始时间" />
-      <input v-model="filters.createdTo" type="date" title="结束时间" />
+      <div class="history-filters__primary">
+        <input v-model="filters.search" type="search" placeholder="搜索提示词" />
+        <select v-model="filters.model">
+          <option value="">全部模型</option>
+          <option v-for="model in availableModels" :key="model" :value="model">{{ model }}</option>
+        </select>
+        <label class="history-filters__favorite">
+          <input v-model="filters.favorite" type="checkbox" />
+          只看收藏
+        </label>
+        <button
+          type="button"
+          :class="['history-filters__toggle', { 'history-filters__toggle--active': showAdvancedFilters }]"
+          @click="showAdvancedFilters = !showAdvancedFilters"
+        >
+          更多筛选
+        </button>
+        <button type="button" class="history-filters__clear" @click="clearFilters">清空筛选</button>
+      </div>
+
+      <div v-if="showAdvancedFilters" class="history-filters__advanced">
+        <select v-model="filters.size">
+          <option value="">全部尺寸</option>
+          <option v-for="size in availableSizes" :key="size" :value="size">{{ size }}</option>
+        </select>
+        <input v-model="filters.tag" type="search" placeholder="标签" />
+        <input v-model="filters.project" type="search" placeholder="项目" />
+        <input v-model="filters.createdFrom" type="date" title="开始时间" />
+        <input v-model="filters.createdTo" type="date" title="结束时间" />
+      </div>
+
+      <div v-if="activeFilterChips().length" class="history-filter-chips">
+        <button
+          v-for="chip in activeFilterChips()"
+          :key="chip.key"
+          type="button"
+          @click="removeFilter(chip.key)"
+        >
+          <span>{{ chip.label }}: {{ chip.value }}</span>
+          <strong aria-hidden="true">×</strong>
+        </button>
+      </div>
     </form>
 
     <div v-if="selecting" class="history-bulkbar">
@@ -394,17 +468,31 @@ h2 {
 
 .history-filters {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(140px, 0.4fr)) auto repeat(2, minmax(130px, 0.35fr)) auto;
   gap: 0.7rem;
-  align-items: center;
   padding: 0.75rem;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-panel);
   background: var(--surface-subtle);
 }
 
+.history-filters__primary,
+.history-filters__advanced {
+  display: grid;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.history-filters__primary {
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, 0.45fr) auto auto auto;
+}
+
+.history-filters__advanced {
+  grid-template-columns: minmax(130px, 0.8fr) repeat(2, minmax(130px, 1fr)) repeat(2, minmax(130px, 0.7fr));
+}
+
 .history-filters input,
-.history-filters select {
+.history-filters select,
+.history-filters button {
   min-height: 2.7rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--line-soft);
@@ -413,12 +501,50 @@ h2 {
   color: var(--ink-strong);
 }
 
+.history-filters button {
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.history-filters__toggle--active {
+  border-color: rgba(49, 95, 157, 0.28);
+  background: rgba(49, 95, 157, 0.09);
+  color: var(--accent-blue);
+}
+
+.history-filters__clear {
+  color: var(--ink-muted);
+}
+
 .history-filters__favorite {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   color: var(--ink-soft);
   white-space: nowrap;
+}
+
+.history-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.history-filter-chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(49, 95, 157, 0.08);
+  color: var(--accent-blue);
+  font-size: 0.8rem;
+}
+
+.history-filter-chips strong {
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .history-panel__error {
@@ -853,6 +979,11 @@ h2 {
   }
 
   .history-filters {
+    gap: 0.6rem;
+  }
+
+  .history-filters__primary,
+  .history-filters__advanced {
     grid-template-columns: 1fr;
   }
 

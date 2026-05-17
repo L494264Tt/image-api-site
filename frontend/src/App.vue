@@ -10,12 +10,14 @@ import {
   mergeFrontendConfig,
 } from './api/client'
 import AppHeader from './components/AppHeader.vue'
+import ConfirmDialog from './components/ConfirmDialog.vue'
 import GenerationResults from './components/GenerationResults.vue'
 import GenerationStatus from './components/GenerationStatus.vue'
 import HistoryGallery from './components/HistoryGallery.vue'
 import ImageGenerationForm from './components/ImageGenerationForm.vue'
 import LoginForm from './components/LoginForm.vue'
 import TaskCenter from './components/TaskCenter.vue'
+import ToastStack, { type ToastMessage } from './components/ToastStack.vue'
 import UserMenu from './components/UserMenu.vue'
 import WorkspaceTabs, { type WorkspaceTabItem } from './components/WorkspaceTabs.vue'
 import { useActiveJobStorage } from './composables/useActiveJobStorage'
@@ -61,8 +63,25 @@ const generationJobs = ref<GenerationJobResponse[]>([])
 const promptTemplates = ref<PromptTemplateCopy[]>([])
 const historyFilters = ref({ search: '', model: '', size: '', favorite: false, tag: '', project: '', createdFrom: '', createdTo: '' })
 const generationFormRef = ref<InstanceType<typeof ImageGenerationForm> | null>(null)
+const toasts = ref<ToastMessage[]>([])
+const confirmDialog = ref<{
+  open: boolean
+  title: string
+  message: string
+  confirmLabel: string
+  onConfirm: (() => Promise<void>) | null
+  busy: boolean
+}>({
+  open: false,
+  title: '',
+  message: '',
+  confirmLabel: '确认删除',
+  onConfirm: null,
+  busy: false,
+})
 let jobPollTimer: number | null = null
 let jobEventSource: EventSource | null = null
+let toastId = 0
 const { persistActiveJob, getPersistedActiveJob, clearPersistedActiveJob } = useActiveJobStorage()
 
 const availableModels = computed(() => config.value.modelOptions)
@@ -619,82 +638,121 @@ async function handleHistoryFilters(nextFilters: { search: string; model: string
 }
 
 async function handleToggleFavorite(item: HistoryRenderableImage): Promise<void> {
-  await apiClient.setImageFavorite(item.recordId, !item.isFavorite)
-  await refreshHistory()
+  try {
+    await apiClient.setImageFavorite(item.recordId, !item.isFavorite)
+    await refreshHistory()
+    showToast(item.isFavorite ? '已取消收藏。' : '已收藏。', 'success')
+  } catch (error) {
+    showToast(formatApiError(error, '收藏状态更新失败。'), 'error')
+  }
 }
 
-async function handleDeleteImages(ids: number[]): Promise<void> {
+function confirmDeleteImages(ids: number[]): void {
   if (ids.length === 0) {
     return
   }
 
-  const message = ids.length === 1
-    ? '确定要删除这条历史记录吗？关联的最近生成任务记录也会被隐藏。'
-    : `确定要删除选中的 ${ids.length} 条历史记录吗？关联的最近生成任务记录也会被隐藏。`
-  if (!window.confirm(message)) {
-    return
-  }
+  openConfirm({
+    title: ids.length === 1 ? '确认删除历史记录' : `确认删除 ${ids.length} 条历史记录`,
+    message: '确认删除后会从当前列表隐藏，关联的最近生成任务记录也会被隐藏。',
+    confirmLabel: '确认删除',
+    onConfirm: () => deleteImages(ids),
+  })
+}
 
+async function deleteImages(ids: number[]): Promise<void> {
   deletingHistoryIds.value = [...new Set([...deletingHistoryIds.value, ...ids])]
 
   try {
     await apiClient.bulkDeleteImages(ids)
     await refreshHistory()
+    showToast(ids.length === 1 ? '历史记录已删除。' : `已删除 ${ids.length} 条历史记录。`, 'success')
+  } catch (error) {
+    showToast(formatApiError(error, '删除历史记录失败。'), 'error')
   } finally {
     deletingHistoryIds.value = deletingHistoryIds.value.filter((id) => !ids.includes(id))
   }
 }
 
 async function handleBulkDownload(ids: number[]): Promise<void> {
-  const zip = await apiClient.bulkDownloadImages(ids)
-  const link = document.createElement('a')
-  link.href = zip.objectUrl
-  link.download = zip.fileName
-  link.click()
-  URL.revokeObjectURL(zip.objectUrl)
+  try {
+    const zip = await apiClient.bulkDownloadImages(ids)
+    const link = document.createElement('a')
+    link.href = zip.objectUrl
+    link.download = zip.fileName
+    link.click()
+    URL.revokeObjectURL(zip.objectUrl)
+    showToast('批量下载已开始。', 'success')
+  } catch (error) {
+    showToast(formatApiError(error, '批量下载失败。'), 'error')
+  }
 }
 
 async function handleOpenImage(item: HistoryRenderableImage): Promise<void> {
-  const asset = await apiClient.fetchProtectedImageAsset(item.originalUrl, item.mimeType)
-  window.open(asset.objectUrl, '_blank', 'noreferrer')
-  window.setTimeout(() => URL.revokeObjectURL(asset.objectUrl), 60_000)
+  try {
+    const asset = await apiClient.fetchProtectedImageAsset(item.originalUrl, item.mimeType)
+    window.open(asset.objectUrl, '_blank', 'noreferrer')
+    window.setTimeout(() => URL.revokeObjectURL(asset.objectUrl), 60_000)
+  } catch (error) {
+    showToast(formatApiError(error, '打开图片失败。'), 'error')
+  }
 }
 
 async function handleDownloadImage(item: HistoryRenderableImage): Promise<void> {
-  const asset = await apiClient.fetchProtectedImageAsset(item.originalUrl, item.mimeType)
-  const link = document.createElement('a')
-  link.href = asset.objectUrl
-  link.download = item.downloadName
-  link.click()
-  URL.revokeObjectURL(asset.objectUrl)
+  try {
+    const asset = await apiClient.fetchProtectedImageAsset(item.originalUrl, item.mimeType)
+    const link = document.createElement('a')
+    link.href = asset.objectUrl
+    link.download = item.downloadName
+    link.click()
+    URL.revokeObjectURL(asset.objectUrl)
+    showToast('图片下载已开始。', 'success')
+  } catch (error) {
+    showToast(formatApiError(error, '下载图片失败。'), 'error')
+  }
 }
 
 async function handleCancelJob(job: GenerationJobResponse): Promise<void> {
-  const updated = await apiClient.cancelGenerationJob(job.id)
-  upsertGenerationJob(updated)
-  if (activeJob.value?.id === job.id) {
-    submitting.value = false
-    stopJobPolling()
-    clearPersistedActiveJob()
-    activeJob.value = updated
-    statusMessage.value = updated.progress_message
+  try {
+    const updated = await apiClient.cancelGenerationJob(job.id)
+    upsertGenerationJob(updated)
+    if (activeJob.value?.id === job.id) {
+      submitting.value = false
+      stopJobPolling()
+      clearPersistedActiveJob()
+      activeJob.value = updated
+      statusMessage.value = updated.progress_message
+    }
+    showToast('生成任务已取消。', 'success')
+  } catch (error) {
+    showToast(formatApiError(error, '取消任务失败。'), 'error')
   }
 }
 
 async function handleRetryJob(job: GenerationJobResponse): Promise<void> {
-  const nextJob = await apiClient.retryGenerationJob(job.id)
-  activeJob.value = nextJob
-  upsertGenerationJob(nextJob)
-  persistActiveJob(nextJob.id)
-  statusMessage.value = nextJob.progress_message
-  startJobPolling(nextJob.id)
+  try {
+    const nextJob = await apiClient.retryGenerationJob(job.id)
+    activeJob.value = nextJob
+    upsertGenerationJob(nextJob)
+    persistActiveJob(nextJob.id)
+    statusMessage.value = nextJob.progress_message
+    startJobPolling(nextJob.id)
+    showToast('已重新提交生成任务。', 'success')
+  } catch (error) {
+    showToast(formatApiError(error, '重试任务失败。'), 'error')
+  }
 }
 
-async function handleDeleteJob(job: GenerationJobResponse): Promise<void> {
-  if (!window.confirm('确定要删除这条生成任务记录吗？记录会被隐藏，但已生成的历史图片不会被删除。')) {
-    return
-  }
+function confirmDeleteJob(job: GenerationJobResponse): void {
+  openConfirm({
+    title: '确认删除生成任务',
+    message: '确认删除后会从当前列表隐藏，但已生成的历史图片不会被删除。',
+    confirmLabel: '确认删除',
+    onConfirm: () => deleteJob(job),
+  })
+}
 
+async function deleteJob(job: GenerationJobResponse): Promise<void> {
   deletingJobIds.value = [...new Set([...deletingJobIds.value, job.id])]
 
   try {
@@ -706,6 +764,9 @@ async function handleDeleteJob(job: GenerationJobResponse): Promise<void> {
       clearPersistedActiveJob()
       activeJob.value = null
     }
+    showToast('生成任务记录已删除。', 'success')
+  } catch (error) {
+    showToast(formatApiError(error, '删除生成任务失败。'), 'error')
   } finally {
     deletingJobIds.value = deletingJobIds.value.filter((id) => id !== job.id)
   }
@@ -715,18 +776,68 @@ function handleReusePrompt(item: HistoryRenderableImage): void {
   activeWorkspaceTab.value = 'generate'
   generationFormRef.value?.applyPrompt(item.prompt)
   window.scrollTo({ top: 0, behavior: 'smooth' })
+  showToast('提示词已填入生成表单。', 'info')
 }
 
 async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> {
-  activeWorkspaceTab.value = 'generate'
-  generationFormRef.value?.applyPrompt(`基于这张图片继续修改：${item.prompt}`)
-  const asset = await apiClient.fetchProtectedImageAsset(item.originalUrl, item.mimeType)
-  const response = await fetch(asset.objectUrl)
-  const blob = await response.blob()
-  URL.revokeObjectURL(asset.objectUrl)
-  const file = new File([blob], item.downloadName || `history-${item.recordId}.png`, { type: blob.type || item.mimeType })
-  generationFormRef.value?.addReferenceFile(file)
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  try {
+    activeWorkspaceTab.value = 'generate'
+    generationFormRef.value?.applyPrompt(`基于这张图片继续修改：${item.prompt}`)
+    const asset = await apiClient.fetchProtectedImageAsset(item.originalUrl, item.mimeType)
+    const response = await fetch(asset.objectUrl)
+    const blob = await response.blob()
+    URL.revokeObjectURL(asset.objectUrl)
+    const file = new File([blob], item.downloadName || `history-${item.recordId}.png`, { type: blob.type || item.mimeType })
+    generationFormRef.value?.addReferenceFile(file)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    showToast('已将图片加入参考图。', 'success')
+  } catch (error) {
+    showToast(formatApiError(error, '加入参考图失败。'), 'error')
+  }
+}
+
+function openConfirm(options: { title: string; message: string; confirmLabel: string; onConfirm: () => Promise<void> }): void {
+  confirmDialog.value = {
+    open: true,
+    title: options.title,
+    message: options.message,
+    confirmLabel: options.confirmLabel,
+    onConfirm: options.onConfirm,
+    busy: false,
+  }
+}
+
+function closeConfirm(): void {
+  if (confirmDialog.value.busy) {
+    return
+  }
+  confirmDialog.value.open = false
+  confirmDialog.value.onConfirm = null
+}
+
+async function handleConfirmAction(): Promise<void> {
+  if (!confirmDialog.value.onConfirm) {
+    closeConfirm()
+    return
+  }
+  confirmDialog.value.busy = true
+  try {
+    await confirmDialog.value.onConfirm()
+    confirmDialog.value.open = false
+    confirmDialog.value.onConfirm = null
+  } finally {
+    confirmDialog.value.busy = false
+  }
+}
+
+function showToast(text: string, kind: ToastMessage['kind'] = 'info'): void {
+  const id = ++toastId
+  toasts.value = [...toasts.value, { id, kind, text }].slice(-4)
+  window.setTimeout(() => dismissToast(id), 4200)
+}
+
+function dismissToast(id: number): void {
+  toasts.value = toasts.value.filter((toast) => toast.id !== id)
 }
 </script>
 
@@ -816,7 +927,7 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
               @refresh="refreshGenerationJobs"
               @cancel="handleCancelJob"
               @retry="handleRetryJob"
-              @delete="handleDeleteJob"
+              @delete="confirmDeleteJob"
             />
           </aside>
         </section>
@@ -836,7 +947,7 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
             @filters-change="handleHistoryFilters"
             @load-more="loadMoreHistory"
             @toggle-favorite="handleToggleFavorite"
-            @delete-images="handleDeleteImages"
+            @delete-images="confirmDeleteImages"
             @bulk-download="handleBulkDownload"
             @open-image="handleOpenImage"
             @download-image="handleDownloadImage"
@@ -855,6 +966,16 @@ async function handleEditFromImage(item: HistoryRenderableImage): Promise<void> 
         </section>
       </template>
     </main>
+    <ConfirmDialog
+      :open="confirmDialog.open"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-label="confirmDialog.confirmLabel"
+      :busy="confirmDialog.busy"
+      @confirm="handleConfirmAction"
+      @cancel="closeConfirm"
+    />
+    <ToastStack :messages="toasts" @dismiss="dismissToast" />
   </div>
 </template>
 

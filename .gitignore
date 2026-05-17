@@ -14,6 +14,8 @@ __pycache__/
 frontend/node_modules/
 frontend/.vscode/
 frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
 
 # Generated artifacts
 backend/test_image_api_site.db
