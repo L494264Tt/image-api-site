@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ApiError, apiClient } from '../api/client'
+import { ApiError, apiClient, createDefaultFrontendConfig, mergeFrontendConfig } from '../api/client'
 import type { AdminUser, AdminUserCreateRequest } from '../types/auth'
+import type { FrontendConfig, HealthSummary } from '../types/image'
 
 const users = ref<AdminUser[]>([])
 const loading = ref(false)
+const statusLoading = ref(false)
 const creating = ref(false)
 const errorMessage = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
 const updatingUserIds = ref<number[]>([])
+const health = ref<HealthSummary | null>(null)
+const config = ref<FrontendConfig | null>(null)
+const models = ref<string[]>([])
 
 const form = reactive<AdminUserCreateRequest>({
   username: '',
@@ -22,8 +27,30 @@ const canSubmit = computed(() => {
 })
 
 onMounted(() => {
-  void loadUsers()
+  void refreshAdminData()
 })
+
+async function refreshAdminData(): Promise<void> {
+  await Promise.all([loadUsers(), loadSystemStatus()])
+}
+
+async function loadSystemStatus(): Promise<void> {
+  statusLoading.value = true
+  try {
+    const [healthResult, configResult, modelsResult] = await Promise.all([
+      apiClient.fetchHealth(),
+      apiClient.fetchConfig(),
+      apiClient.fetchModels(),
+    ])
+    health.value = healthResult
+    config.value = mergeFrontendConfig(createDefaultFrontendConfig(), configResult || {})
+    models.value = modelsResult
+  } catch (error) {
+    errorMessage.value = formatError(error, '系统状态加载失败。')
+  } finally {
+    statusLoading.value = false
+  }
+}
 
 async function loadUsers(): Promise<void> {
   loading.value = true
@@ -123,9 +150,32 @@ function formatError(error: unknown, fallback: string): string {
         <h2 id="admin-panel-title">用户管理</h2>
       </div>
 
-      <button type="button" class="admin-panel__secondary-button" :disabled="loading" @click="loadUsers">
-        {{ loading ? '刷新中' : '刷新列表' }}
+      <button type="button" class="admin-panel__secondary-button" :disabled="loading || statusLoading" @click="refreshAdminData">
+        {{ loading || statusLoading ? '刷新中' : '刷新管理数据' }}
       </button>
+    </div>
+
+    <div class="admin-panel__status-grid" aria-label="系统状态">
+      <article class="admin-panel__status-card">
+        <span>后端</span>
+        <strong>{{ health?.state === 'ready' ? '正常' : health?.state || '检查中' }}</strong>
+        <p>{{ health?.message || '正在读取健康检查' }}</p>
+      </article>
+      <article class="admin-panel__status-card">
+        <span>默认模型</span>
+        <strong>{{ config?.defaultModel || '读取中' }}</strong>
+        <p>{{ models.length }} 个可用模型</p>
+      </article>
+      <article class="admin-panel__status-card">
+        <span>生成能力</span>
+        <strong>{{ config?.modelCapabilities.length || 0 }}</strong>
+        <p>尺寸 {{ config?.sizeOptions.length || 0 }} · 质量 {{ config?.qualityOptions.length || 0 }}</p>
+      </article>
+      <article class="admin-panel__status-card">
+        <span>用户</span>
+        <strong>{{ users.length }}</strong>
+        <p>{{ users.filter((user) => user.is_active).length }} 个已启用</p>
+      </article>
     </div>
 
     <form class="admin-panel__form" @submit.prevent="createUser">
@@ -255,6 +305,42 @@ h2 {
   grid-template-columns: minmax(12rem, 1fr) minmax(12rem, 1fr) minmax(9rem, 0.6fr) auto auto;
   gap: 0.9rem;
   align-items: end;
+}
+
+.admin-panel__status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-panel__status-card {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 7.5rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+}
+
+.admin-panel__status-card span {
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-panel__status-card strong {
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+}
+
+.admin-panel__status-card p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
 }
 
 .admin-panel__field {
@@ -400,6 +486,10 @@ h2 {
   .admin-panel__form {
     grid-template-columns: 1fr 1fr;
   }
+
+  .admin-panel__status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -408,6 +498,10 @@ h2 {
   }
 
   .admin-panel__form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-panel__status-grid {
     grid-template-columns: 1fr;
   }
 

@@ -22,6 +22,8 @@ const emit = defineEmits<{
   toggleFavorite: [item: HistoryRenderableImage]
   deleteImages: [ids: number[]]
   bulkDownload: [ids: number[]]
+  restoreImage: [item: HistoryRenderableImage]
+  trashModeChange: [enabled: boolean]
   openImage: [item: HistoryRenderableImage]
   downloadImage: [item: HistoryRenderableImage]
   reusePrompt: [item: HistoryRenderableImage]
@@ -42,6 +44,7 @@ const selectedIds = ref<number[]>([])
 const previewItem = ref<HistoryRenderableImage | null>(null)
 const selecting = ref(false)
 const showAdvancedFilters = ref(false)
+const trashMode = ref(false)
 let filterTimer: number | null = null
 
 const advancedFilterLabels: Record<'tag' | 'project' | 'createdFrom' | 'createdTo', string> = {
@@ -105,6 +108,12 @@ function requestDelete(ids: number[]): void {
   emit('deleteImages', ids)
 }
 
+function toggleTrashMode(): void {
+  trashMode.value = !trashMode.value
+  selectedIds.value = []
+  emit('trashModeChange', trashMode.value)
+}
+
 function clearFilters(): void {
   filters.search = ''
   filters.model = ''
@@ -163,6 +172,13 @@ function activeFilterChips(): Array<{ key: keyof typeof filters; label: string; 
           @click="toggleSelectionMode"
         >
           {{ selecting ? '退出选择' : '批量选择' }}
+        </button>
+        <button
+          type="button"
+          :class="['history-panel__mode', { 'history-panel__mode--active': trashMode }]"
+          @click="toggleTrashMode"
+        >
+          {{ trashMode ? '返回历史' : '回收站' }}
         </button>
         <button v-if="selecting" type="button" class="history-panel__refresh" :disabled="selectedIds.length === 0" @click="downloadSelected">
           批量下载
@@ -224,7 +240,7 @@ function activeFilterChips(): Array<{ key: keyof typeof filters; label: string; 
     <div v-if="selecting" class="history-bulkbar">
       <div>
         <strong>已选择 {{ selectedIds.length }} 张图片</strong>
-        <span>进入批量模式后可下载或删除选中的历史图片。</span>
+        <span>{{ trashMode ? '回收站中可恢复误删图片。' : '进入批量模式后可下载或删除选中的历史图片。' }}</span>
       </div>
       <div class="history-bulkbar__actions">
         <button class="button button--ghost" type="button" :disabled="selectedIds.length === 0 || busy" @click="downloadSelected">下载选中</button>
@@ -270,6 +286,15 @@ function activeFilterChips(): Array<{ key: keyof typeof filters; label: string; 
             <button class="history-card__quick" type="button" @click="emit('reusePrompt', item)">复用</button>
             <button class="history-card__quick" type="button" @click="emit('editFromImage', item)">再编辑</button>
             <button
+              v-if="trashMode"
+              class="history-card__quick"
+              type="button"
+              @click="emit('restoreImage', item)"
+            >
+              恢复
+            </button>
+            <button
+              v-else
               class="history-card__quick history-card__quick--danger"
               type="button"
               :disabled="isDeleting(item.recordId)"
@@ -307,7 +332,10 @@ function activeFilterChips(): Array<{ key: keyof typeof filters; label: string; 
               {{ item.isFavorite ? '取消收藏' : '收藏' }}
             </button>
             <button class="button button--ghost" type="button" @click="emit('openImage', item)">{{ copy.open }}</button>
-            <button class="button button--ghost" type="button" :disabled="isDeleting(item.recordId)" @click="requestDelete([item.recordId])">
+            <button v-if="trashMode" class="button button--ghost" type="button" @click="emit('restoreImage', item)">
+              恢复
+            </button>
+            <button v-else class="button button--ghost" type="button" :disabled="isDeleting(item.recordId)" @click="requestDelete([item.recordId])">
               {{ isDeleting(item.recordId) ? '删除中...' : '删除' }}
             </button>
             <button class="button" type="button" @click="emit('downloadImage', item)">{{ copy.download }}</button>
@@ -359,6 +387,15 @@ function activeFilterChips(): Array<{ key: keyof typeof filters; label: string; 
             <button class="button button--ghost" type="button" @click="emit('reusePrompt', previewItem)">复用提示词</button>
             <button class="button button--ghost" type="button" @click="emit('editFromImage', previewItem)">基于此图再改</button>
             <button
+              v-if="previewItem.deletedAt"
+              class="button button--ghost"
+              type="button"
+              @click="emit('restoreImage', previewItem); previewItem = null"
+            >
+              恢复
+            </button>
+            <button
+              v-else
               class="button button--ghost"
               type="button"
               :disabled="isDeleting(previewItem.recordId)"

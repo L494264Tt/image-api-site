@@ -143,6 +143,7 @@ class ImageHistoryItem(BaseModel):
     is_favorite: bool = False
     tags: list[str] = Field(default_factory=list)
     project: str | None = None
+    deleted_at: datetime | None = None
     created_at: datetime
 
 
@@ -170,6 +171,7 @@ class GenerationJobResponse(BaseModel):
     created_at: datetime
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    deleted_at: datetime | None = None
 
 
 class GenerationJobEventsTokenResponse(BaseModel):

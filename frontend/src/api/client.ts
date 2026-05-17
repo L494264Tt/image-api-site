@@ -6,6 +6,7 @@ import type {
   HealthSummary,
   ImageGenerationRequest,
   ImageGenerationResponse,
+  ImageHistoryItem,
   ImageHistoryResponse,
   PromptImproveRequest,
   PromptImproveResponse,
@@ -395,6 +396,14 @@ export const apiClient = {
     return requestJson<GenerationJobResponse[]>(`/images/generation-jobs?limit=${limit}`, undefined, { auth: true })
   },
 
+  async fetchDeletedGenerationJobs(limit = 20): Promise<GenerationJobResponse[]> {
+    return requestJson<GenerationJobResponse[]>(
+      `/images/generation-jobs?limit=${limit}&include_deleted=true`,
+      undefined,
+      { auth: true },
+    )
+  },
+
   async cancelGenerationJob(jobId: number): Promise<GenerationJobResponse> {
     return requestJson<GenerationJobResponse>(
       `/images/generation-jobs/${jobId}/cancel`,
@@ -415,6 +424,14 @@ export const apiClient = {
     await requestJson(
       `/images/generation-jobs/${jobId}`,
       { method: 'DELETE' },
+      { auth: true },
+    )
+  },
+
+  async restoreGenerationJob(jobId: number): Promise<GenerationJobResponse> {
+    return requestJson<GenerationJobResponse>(
+      `/images/generation-jobs/${jobId}/restore`,
+      { method: 'POST' },
       { auth: true },
     )
   },
@@ -455,6 +472,7 @@ export const apiClient = {
       project?: string
       createdFrom?: string
       createdTo?: string
+      includeDeleted?: boolean
     } = {},
   ): Promise<ImageHistoryResponse> {
     const params = new URLSearchParams({
@@ -484,6 +502,9 @@ export const apiClient = {
     }
     if (filters.createdTo) {
       params.set('created_to', new Date(`${filters.createdTo}T23:59:59`).toISOString())
+    }
+    if (filters.includeDeleted) {
+      params.set('include_deleted', 'true')
     }
     const payload = await requestJson<unknown>(
       `/images/history?${params.toString()}`,
@@ -525,6 +546,14 @@ export const apiClient = {
         method: 'POST',
         body: JSON.stringify({ image_ids: imageIds }),
       },
+      { auth: true },
+    )
+  },
+
+  async restoreImage(imageId: number): Promise<ImageHistoryItem> {
+    return requestJson<ImageHistoryItem>(
+      `/images/${imageId}/restore`,
+      { method: 'POST' },
       { auth: true },
     )
   },

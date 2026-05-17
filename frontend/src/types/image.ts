@@ -106,6 +106,7 @@ export interface ImageHistoryItem {
   is_favorite: boolean
   tags: string[]
   project?: string
+  deleted_at?: string | null
   created_at: string
 }
 
@@ -133,6 +134,7 @@ export interface GenerationJobResponse {
   created_at: string
   started_at?: string
   completed_at?: string
+  deleted_at?: string | null
 }
 
 export interface GenerationJobEventsTokenResponse {
@@ -162,6 +164,7 @@ export interface HistoryRenderableImage extends RenderableImage {
   isFavorite: boolean
   tags: string[]
   project?: string
+  deletedAt?: string | null
   createdAt: string
 }
 

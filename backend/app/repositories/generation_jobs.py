@@ -36,21 +36,39 @@ def create_generation_job(
     return job
 
 
-def get_generation_job_for_user(session: Session, *, job_id: int, user_id: int) -> GenerationJob | None:
+def get_generation_job_for_user(
+    session: Session,
+    *,
+    job_id: int,
+    user_id: int,
+    include_deleted: bool = False,
+) -> GenerationJob | None:
+    filters = [
+        GenerationJob.id == job_id,
+        GenerationJob.user_id == user_id,
+    ]
+    if not include_deleted:
+        filters.append(GenerationJob.deleted_at.is_(None))
     return session.scalar(
-        select(GenerationJob).where(
-            GenerationJob.id == job_id,
-            GenerationJob.user_id == user_id,
-            GenerationJob.deleted_at.is_(None),
-        )
+        select(GenerationJob).where(*filters)
     )
 
 
-def list_generation_jobs_for_user(session: Session, *, user_id: int, limit: int = 20) -> list[GenerationJob]:
+def list_generation_jobs_for_user(
+    session: Session,
+    *,
+    user_id: int,
+    limit: int = 20,
+    include_deleted: bool = False,
+) -> list[GenerationJob]:
+    filters = [
+        GenerationJob.user_id == user_id,
+        GenerationJob.deleted_at.is_not(None) if include_deleted else GenerationJob.deleted_at.is_(None),
+    ]
     return list(
         session.scalars(
             select(GenerationJob)
-            .where(GenerationJob.user_id == user_id, GenerationJob.deleted_at.is_(None))
+            .where(*filters)
             .order_by(GenerationJob.created_at.desc(), GenerationJob.id.desc())
             .limit(limit)
         )
@@ -112,6 +130,16 @@ def soft_delete_generation_job(session: Session, *, job_id: int, user_id: int) -
         job.locked_at = None
         job.completed_at = now
     job.deleted_at = now
+    session.commit()
+    session.refresh(job)
+    return job
+
+
+def restore_generation_job(session: Session, *, job_id: int, user_id: int) -> GenerationJob | None:
+    job = get_generation_job_for_user(session, job_id=job_id, user_id=user_id, include_deleted=True)
+    if job is None or job.deleted_at is None:
+        return None
+    job.deleted_at = None
     session.commit()
     session.refresh(job)
     return job

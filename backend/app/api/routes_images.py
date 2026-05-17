@@ -17,7 +17,7 @@ from app.model_capabilities import image_to_image_fallback_model
 from app.models.user import User
 from app.repositories.generation_jobs import count_active_generation_jobs_for_user, create_generation_job, get_generation_job_for_user
 from app.repositories.generation_jobs import cancel_generation_job, list_generation_jobs_for_user, retry_generation_job
-from app.repositories.generation_jobs import soft_delete_generation_job
+from app.repositories.generation_jobs import restore_generation_job, soft_delete_generation_job
 from app.repositories.image_generations import (
     create_image_generation,
     decode_tags,
@@ -25,6 +25,7 @@ from app.repositories.image_generations import (
     list_images_for_user,
     set_image_favorite,
     set_image_organization,
+    restore_image_for_user,
     soft_delete_images_for_user,
 )
 from app.services.error_mapper import friendly_upstream_error
@@ -69,6 +70,7 @@ def history_item_from_record(item) -> ImageHistoryItem:
         is_favorite=item.is_favorite,
         tags=decode_tags(item.tags),
         project=item.project,
+        deleted_at=item.deleted_at,
         created_at=item.created_at,
     )
 
@@ -96,6 +98,7 @@ def job_response_from_record(session: Session, job) -> GenerationJobResponse:
         created_at=job.created_at,
         started_at=job.started_at,
         completed_at=job.completed_at,
+        deleted_at=job.deleted_at,
     )
 
 
@@ -213,10 +216,14 @@ async def generation_job_events(
 @router.get("/generation-jobs", response_model=list[GenerationJobResponse])
 def generation_jobs(
     limit: int = Query(default=20, ge=1, le=50),
+    include_deleted: bool = Query(default=False),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_db),
 ) -> list[GenerationJobResponse]:
-    return [job_response_from_record(session, job) for job in list_generation_jobs_for_user(session, user_id=user.id, limit=limit)]
+    return [
+        job_response_from_record(session, job)
+        for job in list_generation_jobs_for_user(session, user_id=user.id, limit=limit, include_deleted=include_deleted)
+    ]
 
 
 @router.post("/generation-jobs/{job_id}/cancel", response_model=GenerationJobResponse)
@@ -254,6 +261,18 @@ def delete_job(
     if job is None:
         raise HTTPException(status_code=404, detail="Generation job not found")
     return Response(status_code=204)
+
+
+@router.post("/generation-jobs/{job_id}/restore", response_model=GenerationJobResponse)
+def restore_job(
+    job_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> GenerationJobResponse:
+    job = restore_generation_job(session, job_id=job_id, user_id=user.id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Generation job not found")
+    return job_response_from_record(session, job)
 
 
 @router.post("/generations", response_model=ImageGenerationResponse)
@@ -342,6 +361,7 @@ def history(
     project: str | None = Query(default=None),
     created_from: datetime | None = Query(default=None),
     created_to: datetime | None = Query(default=None),
+    include_deleted: bool = Query(default=False),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_db),
 ) -> ImageHistoryResponse:
@@ -358,6 +378,7 @@ def history(
         project=project,
         created_from=created_from,
         created_to=created_to,
+        include_deleted=include_deleted,
     )
     return ImageHistoryResponse(
         items=[history_item_from_record(item) for item in items],
@@ -374,6 +395,18 @@ def bulk_delete_images(
     session: Session = Depends(get_db),
 ) -> BulkDeleteResponse:
     return BulkDeleteResponse(deleted=soft_delete_images_for_user(session, image_ids=request.image_ids, user_id=user.id))
+
+
+@router.post("/{image_id}/restore", response_model=ImageHistoryItem)
+def restore_image(
+    image_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> ImageHistoryItem:
+    item = restore_image_for_user(session, image_id=image_id, user_id=user.id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Image not found")
+    return history_item_from_record(item)
 
 
 @router.post("/bulk-download")

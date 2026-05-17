@@ -117,6 +117,60 @@ def test_bulk_delete_removes_history_and_associated_generation_job() -> None:
     finally:
         session.close()
 
+
+def test_deleted_history_can_be_listed_and_restored_with_associated_job() -> None:
+    from app.config import get_settings
+    from app.db.session import get_session_factory
+
+    client = TestClient(app)
+    token = get_token(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    image = seed_history_image("A recoverable product render")
+
+    session = get_session_factory(get_settings())()
+    try:
+        user = get_user_by_username(session, "admin")
+        assert user is not None
+        job = create_generation_job(
+            session,
+            user_id=user.id,
+            prompt=image.prompt,
+            negative_prompt=None,
+            model=image.model,
+            size=image.size,
+            quality=image.quality,
+            request_payload={"prompt": image.prompt, "model": image.model, "size": image.size},
+        )
+        job_id = job.id
+        mark_job_succeeded(session, job, image_generation_id=image.id)
+    finally:
+        session.close()
+
+    delete_response = client.post("/api/images/bulk-delete", headers=headers, json={"image_ids": [image.id]})
+    assert delete_response.status_code == 200
+
+    active_response = client.get("/api/images/history", headers=headers)
+    assert active_response.status_code == 200
+    assert active_response.json()["items"] == []
+
+    trash_response = client.get("/api/images/history?include_deleted=true", headers=headers)
+    assert trash_response.status_code == 200
+    trash_items = trash_response.json()["items"]
+    assert [item["id"] for item in trash_items] == [image.id]
+    assert trash_items[0]["deleted_at"] is not None
+
+    restore_response = client.post(f"/api/images/{image.id}/restore", headers=headers)
+    assert restore_response.status_code == 200
+    assert restore_response.json()["deleted_at"] is None
+
+    restored_history = client.get("/api/images/history", headers=headers)
+    assert restored_history.status_code == 200
+    assert [item["id"] for item in restored_history.json()["items"]] == [image.id]
+
+    restored_jobs = client.get("/api/images/generation-jobs", headers=headers)
+    assert restored_jobs.status_code == 200
+    assert any(item["id"] == job_id for item in restored_jobs.json())
+
     delete_response = client.post("/api/images/bulk-delete", headers=headers, json={"image_ids": [image.id]})
 
     assert delete_response.status_code == 200

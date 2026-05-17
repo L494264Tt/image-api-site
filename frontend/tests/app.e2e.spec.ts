@@ -45,6 +45,25 @@ async function mockSignedInApp(page) {
   await page.route('**/api/auth/me', async (route) => {
     await route.fulfill({ json: { id: 1, username: 'admin', role: 'admin', is_active: true, created_at: '2026-05-17T00:00:00Z' } })
   })
+  await page.route('**/api/admin/users', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        json: [
+          {
+            id: 1,
+            username: 'admin',
+            role: 'admin',
+            is_active: true,
+            created_at: '2026-05-17T00:00:00Z',
+            updated_at: '2026-05-17T00:00:00Z',
+            last_login_at: '2026-05-17T01:00:00Z',
+          },
+        ],
+      })
+      return
+    }
+    await route.fulfill({ status: 201, json: {} })
+  })
   await page.route('**/api/prompt-templates', async (route) => {
     await route.fulfill({ json: [] })
   })
@@ -74,6 +93,20 @@ async function mockSignedInApp(page) {
   })
   await page.route('**/api/images/generation-jobs/42', async (route) => {
     await route.fulfill({ status: 204, body: '' })
+  })
+  await page.route('**/api/images/generation-jobs/42/retry', async (route) => {
+    await route.fulfill({
+      status: 202,
+      json: {
+        id: 43,
+        status: 'queued',
+        progress_message: '已加入生成队列',
+        attempt_count: 0,
+        max_attempts: 2,
+        requested_model: 'gpt-image-2',
+        created_at: '2026-05-17T00:01:00Z',
+      },
+    })
   })
 }
 
@@ -110,4 +143,44 @@ test('history filters expose advanced controls without crowding the default row'
   await expect(page.getByPlaceholder('标签')).toBeVisible()
   await page.getByPlaceholder('标签').fill('产品图')
   await expect(page.getByRole('button', { name: /标签: 产品图/ })).toBeVisible()
+})
+
+test('admin panel shows users and system status', async ({ page }) => {
+  await mockSignedInApp(page)
+  await page.goto('/')
+
+  await page.getByRole('navigation', { name: '工作台导航' }).getByRole('button', { name: /管理/ }).click()
+  const adminPanel = page.getByLabel('用户管理', { exact: true })
+  await expect(page.getByRole('heading', { name: '用户管理' })).toBeVisible()
+  await expect(page.getByLabel('系统状态')).toContainText('默认模型')
+  await expect(adminPanel.getByText('admin', { exact: true })).toBeVisible()
+})
+
+test('task detail and bulk actions are available', async ({ page }) => {
+  await mockSignedInApp(page)
+  await page.goto('/')
+
+  await page.getByRole('button', { name: '详情' }).click()
+  const detailDialog = page.getByRole('dialog', { name: /#42/ })
+  await expect(detailDialog).toBeVisible()
+  await expect(detailDialog.getByText('insufficient_quota')).toBeVisible()
+  await page.getByRole('button', { name: '关闭' }).click()
+
+  await page.getByRole('button', { name: '批量操作' }).click()
+  await page.getByLabel('选择').check()
+  await page.getByRole('button', { name: '批量重试' }).click()
+  await expect(page.getByText('已重新提交生成任务。')).toBeVisible()
+})
+
+test('visual regression snapshots for key states', async ({ page }, testInfo) => {
+  await mockSignedInApp(page)
+  await page.goto('/')
+
+  await expect(page).toHaveScreenshot(`signed-in-${testInfo.project.name}.png`, { fullPage: false })
+  await page.getByRole('button', { name: '详情' }).click()
+  await expect(page).toHaveScreenshot(`task-detail-${testInfo.project.name}.png`, { fullPage: false })
+  await page.getByRole('button', { name: '关闭' }).click()
+  await page.getByRole('navigation', { name: '工作台导航' }).getByRole('button', { name: /历史/ }).click()
+  await page.getByRole('button', { name: '更多筛选' }).click()
+  await expect(page).toHaveScreenshot(`history-filters-${testInfo.project.name}.png`, { fullPage: false })
 })

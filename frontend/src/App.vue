@@ -10,6 +10,7 @@ import {
   mergeFrontendConfig,
 } from './api/client'
 import AppHeader from './components/AppHeader.vue'
+import AdminPanel from './components/AdminPanel.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import GenerationResults from './components/GenerationResults.vue'
 import GenerationStatus from './components/GenerationStatus.vue'
@@ -62,6 +63,7 @@ const activeJob = ref<GenerationJobResponse | null>(null)
 const generationJobs = ref<GenerationJobResponse[]>([])
 const promptTemplates = ref<PromptTemplateCopy[]>([])
 const historyFilters = ref({ search: '', model: '', size: '', favorite: false, tag: '', project: '', createdFrom: '', createdTo: '' })
+const historyTrashMode = ref(false)
 const generationFormRef = ref<InstanceType<typeof ImageGenerationForm> | null>(null)
 const toasts = ref<ToastMessage[]>([])
 const confirmDialog = ref<{
@@ -311,6 +313,7 @@ async function refreshHistory(): Promise<void> {
       project: historyFilters.value.project || undefined,
       createdFrom: historyFilters.value.createdFrom || undefined,
       createdTo: historyFilters.value.createdTo || undefined,
+      includeDeleted: historyTrashMode.value,
     })
     const hydrated = await hydrateHistoryItems(response.items)
     historyTotal.value = response.total
@@ -344,6 +347,7 @@ async function loadMoreHistory(): Promise<void> {
       project: historyFilters.value.project || undefined,
       createdFrom: historyFilters.value.createdFrom || undefined,
       createdTo: historyFilters.value.createdTo || undefined,
+      includeDeleted: historyTrashMode.value,
     })
     const hydrated = await hydrateHistoryItems(response.items)
     historyPage.value = nextPage
@@ -541,6 +545,7 @@ async function hydrateHistoryItems(items: ImageHistoryItem[]): Promise<HistoryRe
         isFavorite: item.is_favorite,
         tags: item.tags,
         project: item.project,
+        deletedAt: item.deleted_at,
         createdAt: item.created_at,
       }
     }),
@@ -637,6 +642,11 @@ async function handleHistoryFilters(nextFilters: { search: string; model: string
   await refreshHistory()
 }
 
+async function handleHistoryTrashMode(enabled: boolean): Promise<void> {
+  historyTrashMode.value = enabled
+  await refreshHistory()
+}
+
 async function handleToggleFavorite(item: HistoryRenderableImage): Promise<void> {
   try {
     await apiClient.setImageFavorite(item.recordId, !item.isFavorite)
@@ -671,6 +681,17 @@ async function deleteImages(ids: number[]): Promise<void> {
     showToast(formatApiError(error, '删除历史记录失败。'), 'error')
   } finally {
     deletingHistoryIds.value = deletingHistoryIds.value.filter((id) => !ids.includes(id))
+  }
+}
+
+async function handleRestoreImage(item: HistoryRenderableImage): Promise<void> {
+  try {
+    await apiClient.restoreImage(item.recordId)
+    await refreshHistory()
+    await refreshGenerationJobs()
+    showToast('历史记录已恢复。', 'success')
+  } catch (error) {
+    showToast(formatApiError(error, '恢复历史记录失败。'), 'error')
   }
 }
 
@@ -743,12 +764,34 @@ async function handleRetryJob(job: GenerationJobResponse): Promise<void> {
   }
 }
 
+async function handleBulkRetryJobs(jobs: GenerationJobResponse[]): Promise<void> {
+  for (const job of jobs) {
+    await handleRetryJob(job)
+  }
+}
+
 function confirmDeleteJob(job: GenerationJobResponse): void {
   openConfirm({
     title: '确认删除生成任务',
     message: '确认删除后会从当前列表隐藏，但已生成的历史图片不会被删除。',
     confirmLabel: '确认删除',
     onConfirm: () => deleteJob(job),
+  })
+}
+
+function confirmBulkDeleteJobs(jobs: GenerationJobResponse[]): void {
+  if (jobs.length === 0) {
+    return
+  }
+  openConfirm({
+    title: `确认删除 ${jobs.length} 条生成任务`,
+    message: '确认删除后会从当前任务列表隐藏，已生成的历史图片不会被删除。',
+    confirmLabel: '确认删除',
+    onConfirm: async () => {
+      for (const job of jobs) {
+        await deleteJob(job)
+      }
+    },
   })
 }
 
@@ -928,6 +971,8 @@ function dismissToast(id: number): void {
               @cancel="handleCancelJob"
               @retry="handleRetryJob"
               @delete="confirmDeleteJob"
+              @bulk-retry="handleBulkRetryJobs"
+              @bulk-delete="confirmBulkDeleteJobs"
             />
           </aside>
         </section>
@@ -945,9 +990,11 @@ function dismissToast(id: number): void {
             :format-date-time="formatDateTime"
             :copy="copy.history"
             @filters-change="handleHistoryFilters"
+            @trash-mode-change="handleHistoryTrashMode"
             @load-more="loadMoreHistory"
             @toggle-favorite="handleToggleFavorite"
             @delete-images="confirmDeleteImages"
+            @restore-image="handleRestoreImage"
             @bulk-download="handleBulkDownload"
             @open-image="handleOpenImage"
             @download-image="handleDownloadImage"
@@ -958,11 +1005,7 @@ function dismissToast(id: number): void {
         </section>
 
         <section v-if="isAdmin && activeWorkspaceTab === 'admin'" class="workspace-view">
-          <div class="admin-placeholder">
-            <p class="admin-placeholder__eyebrow">管理</p>
-            <h2>管理面板</h2>
-            <p>AdminPanel 正在集成中，后续会在这里接入管理员功能。</p>
-          </div>
+          <AdminPanel />
         </section>
       </template>
     </main>

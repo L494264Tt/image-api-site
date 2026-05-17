@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.db.session import get_session_factory
 from app.main import app
 from app.repositories.generation_jobs import create_generation_job
+from app.repositories.generation_jobs import mark_job_failed
 from app.repositories.users import create_user
 from app.services.generation_runner import run_generation_job
 from app.services.auth import hash_password
@@ -252,6 +253,50 @@ def test_generation_job_rejects_inline_reference_image_data_url() -> None:
     )
 
     assert response.status_code == 400
+
+
+def test_deleted_generation_job_can_be_listed_and_restored() -> None:
+    client = TestClient(app)
+    token = client.post("/api/auth/login", json={"username": "admin", "password": "StrongTestAdminPass123!"}).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    session = get_session_factory(get_settings())()
+    try:
+      from app.repositories.users import get_user_by_username
+      user = get_user_by_username(session, "admin")
+      assert user is not None
+      job = create_generation_job(
+          session,
+          user_id=user.id,
+          prompt="A failed job to restore",
+          negative_prompt=None,
+          model="gpt-image-2",
+          size="1024x1024",
+          quality=None,
+          request_payload={"prompt": "A failed job to restore"},
+      )
+      job_id = job.id
+      mark_job_failed(session, job, message="failed for test")
+    finally:
+      session.close()
+
+    delete_response = client.delete(f"/api/images/generation-jobs/{job_id}", headers=headers)
+    assert delete_response.status_code == 204
+
+    active_response = client.get("/api/images/generation-jobs", headers=headers)
+    assert active_response.status_code == 200
+    assert all(item["id"] != job_id for item in active_response.json())
+
+    trash_response = client.get("/api/images/generation-jobs?include_deleted=true", headers=headers)
+    assert trash_response.status_code == 200
+    trash_items = trash_response.json()
+    assert [item["id"] for item in trash_items] == [job_id]
+    assert trash_items[0]["deleted_at"] is not None
+
+    restore_response = client.post(f"/api/images/generation-jobs/{job_id}/restore", headers=headers)
+    assert restore_response.status_code == 200
+    assert restore_response.json()["id"] == job_id
+    assert restore_response.json()["deleted_at"] is None
 
 
 def test_generation_job_quota_limits_active_jobs() -> None:

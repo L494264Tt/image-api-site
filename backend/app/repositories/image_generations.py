@@ -95,11 +95,12 @@ def list_images_for_user(
     project: str | None = None,
     created_from: datetime | None = None,
     created_to: datetime | None = None,
+    include_deleted: bool = False,
 ) -> tuple[list[ImageGeneration], int]:
     filters = [
         ImageGeneration.user_id == user_id,
-        ImageGeneration.deleted_at.is_(None),
     ]
+    filters.append(ImageGeneration.deleted_at.is_not(None) if include_deleted else ImageGeneration.deleted_at.is_(None))
     if search:
         pattern = f"%{search.strip()}%"
         filters.append(or_(ImageGeneration.prompt.ilike(pattern), ImageGeneration.revised_prompt.ilike(pattern)))
@@ -142,6 +143,16 @@ def get_image_for_user(session: Session, *, image_id: int, user_id: int) -> Imag
             ImageGeneration.id == image_id,
             ImageGeneration.user_id == user_id,
             ImageGeneration.deleted_at.is_(None),
+        )
+    )
+
+
+def get_deleted_image_for_user(session: Session, *, image_id: int, user_id: int) -> ImageGeneration | None:
+    return session.scalar(
+        select(ImageGeneration).where(
+            ImageGeneration.id == image_id,
+            ImageGeneration.user_id == user_id,
+            ImageGeneration.deleted_at.is_not(None),
         )
     )
 
@@ -200,3 +211,21 @@ def soft_delete_images_for_user(session: Session, *, image_ids: list[int], user_
         job.deleted_at = now
     session.commit()
     return len(items)
+
+
+def restore_image_for_user(session: Session, *, image_id: int, user_id: int) -> ImageGeneration | None:
+    image = get_deleted_image_for_user(session, image_id=image_id, user_id=user_id)
+    if image is None:
+        return None
+    image.deleted_at = None
+    for job in session.scalars(
+        select(GenerationJob).where(
+            GenerationJob.user_id == user_id,
+            GenerationJob.image_generation_id == image_id,
+            GenerationJob.deleted_at.is_not(None),
+        )
+    ):
+        job.deleted_at = None
+    session.commit()
+    session.refresh(image)
+    return image
